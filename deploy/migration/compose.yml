@@ -1,0 +1,39 @@
+# Layer over docker-compose.selfhost.yml for a small, shared host.
+# Image references must be pinned to the digests recorded during preflight.
+services:
+  postgres:
+    image: ${SYNC_POSTGRES_IMAGE:?Set an immutable PostgreSQL image reference}
+    pull_policy: never
+    mem_limit: 256m
+    cpus: 0.50
+    command: [postgres, -c, shared_buffers=64MB, -c, work_mem=4MB, -c, max_connections=40]
+    logging: &logging
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+  backend:
+    image: ${SYNC_BACKEND_IMAGE:?Set an immutable backend image reference}
+    pull_policy: never
+    mem_limit: 384m
+    cpus: 0.75
+    environment:
+      GOMEMLIMIT: 256MiB
+      DATABASE_MAX_CONNS: "12"
+      DATABASE_MIN_CONNS: "1"
+      DATABASE_SEARCH_WORK_MEM_MB: "4"
+      DO_NOT_TRACK: "true"
+      ANALYTICS_DISABLED: "true"
+      # An empty storage base keeps future uploads on capability API URLs too.
+      LOCAL_UPLOAD_BASE_URL: ""
+      MULTICA_PUBLIC_URL: ${MULTICA_APP_URL:?Set the target HTTPS origin}
+      ATTACHMENT_DOWNLOAD_MODE: proxy
+    logging: *logging
+  frontend:
+    image: ${SYNC_WEB_IMAGE:?Set an immutable frontend image reference}
+    pull_policy: never
+    mem_limit: 384m
+    cpus: 0.50
+    environment:
+      NODE_OPTIONS: --max-old-space-size=256
+    logging: *logging
