@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 import urllib.error
 
-from cloud_sync import API, AssetRedirect, Exporter, NoRedirect, SyncError, attachment_references, avatar_reference, digest, save
+from cloud_sync import API, AssetRedirect, Exporter, NoRedirect, SyncError, agent_secrets_redacted, attachment_references, avatar_reference, digest, save
 from cloud_sync_import import identifier, literal, load_snapshot, rewrite_attachment_links, sql_for_plan, stable_id, stored_status_category
 from cloud_sync_reconcile import reconcile
 
@@ -25,6 +25,12 @@ class FakeAPI:
 
 
 class ExportTests(unittest.TestCase):
+    def test_all_known_agent_secret_surfaces_block_complete_copy(self):
+        for agent in ({"has_custom_env": True}, {"mcp_config_redacted": True},
+                      {"runtime_config": {"gateway": {"token": "***"}}}):
+            self.assertTrue(agent_secrets_redacted(agent))
+        self.assertFalse(agent_secrets_redacted({"runtime_config": {"model": "example"}}))
+
     def test_avatar_mapping_rejects_traversal_and_ignores_external_profiles(self):
         self.assertIsNone(avatar_reference("https://profile.example/avatar.png", {"source.example"}))
         with self.assertRaises(SyncError):

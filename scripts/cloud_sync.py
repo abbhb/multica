@@ -122,6 +122,11 @@ def unique(rows, key="id"):
     return rows
 
 
+def agent_secrets_redacted(agent):
+    gateway = (agent.get("runtime_config") or {}).get("gateway") or {}
+    return bool(agent.get("has_custom_env") or agent.get("mcp_config_redacted") or gateway.get("token") == "***")
+
+
 def download_assets(api, snapshot_path, output):
     snapshot = json.loads(Path(snapshot_path).read_text())
     if snapshot["source"] != api.base or snapshot["workspace_id"] != api.workspace:
@@ -337,7 +342,7 @@ class Exporter:
                       for suffix in ("skills", "labels", "tasks?limit=200&include_usage=true"))
         for agent in self.objects["agents"]:
             agent_id = agent["id"]
-            if agent.get("has_custom_env") or agent.get("mcp_config_redacted"):
+            if agent_secrets_redacted(agent):
                 self.blockers.append(f"agent secrets require explicit transfer: {agent_id}")
             value, _ = self.get(f"/api/agents/{agent_id}/skills")
             for skill in rows_of(value):
