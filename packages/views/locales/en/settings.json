@@ -388,10 +388,12 @@
     "remove_failed_toast": "Could not remove the shared MCP server"
   },
   "page": {
+    "open_reconciliation": "Open reconciliation console",
     "title": "Settings",
     "my_account": "My Account",
     "workspace_fallback": "Workspace",
     "tabs": {
+      "reconciliation": "Data reconciliation",
       "profile": "Profile",
       "preferences": "Preferences",
       "shortcuts": "Shortcuts",

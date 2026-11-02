@@ -386,10 +386,12 @@
     "remove_failed_toast": "共有 MCP サーバーを削除できませんでした"
   },
   "page": {
+    "open_reconciliation": "データ照合画面を開く",
     "title": "設定",
     "my_account": "マイアカウント",
     "workspace_fallback": "ワークスペース",
     "tabs": {
+      "reconciliation": "データ照合",
       "profile": "プロフィール",
       "preferences": "環境設定",
       "shortcuts": "ショートカット",

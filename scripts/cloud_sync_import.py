@@ -377,7 +377,8 @@ def sql_for_plan(plan, previous=None, dry_run=False):
         if previous_spec:
             incoming_by_key = {tuple(row[k] for k in keys): row for row in spec["rows"]}
             previous_spec = {**previous_spec, "rows": [row for row in previous_spec["rows"]
-                if incoming_by_key.get(tuple(row[k] for k in keys)) != row]}
+                if tuple(row[k] for k in keys) in incoming_by_key
+                and incoming_by_key[tuple(row[k] for k in keys)] != row]}
         for temp, dataset in ((incoming, spec), (prior, previous_spec)):
             if not dataset:
                 continue
@@ -391,9 +392,12 @@ def sql_for_plan(plan, previous=None, dry_run=False):
         def record(alias):
             return "ROW(" + ", ".join(f"{alias}.{identifier(k)}" for k in fields) + ")"
         sql.append(f"SELECT 1 / (NOT EXISTS (SELECT 1 FROM {target} t JOIN {incoming} s ON {joined('t','s')} LEFT JOIN {prior} p ON {joined('s','p')} WHERE {record('t')} IS DISTINCT FROM {record('s')} AND (p.{identifier(keys[0])} IS NULL OR {record('t')} IS DISTINCT FROM {record('p')})))::int AS {identifier('no_conflicts_' + table)};")
+        if previous_spec:
+            sql.append(f"SELECT 1 / (NOT EXISTS (SELECT 1 FROM {prior} p LEFT JOIN {target} t ON {joined('p','t')} WHERE t.{identifier(keys[0])} IS NULL))::int AS {identifier('no_missing_' + table)};")
         assignments = ", ".join(f"{identifier(k)} = EXCLUDED.{identifier(k)}" for k in fields if k not in keys)
-        action = "DO UPDATE SET " + assignments if assignments else "DO NOTHING"
-        sql.append(f"INSERT INTO {target} AS t ({cols}) SELECT {cols} FROM {incoming} ON CONFLICT ({', '.join(map(identifier, keys))}) {action};")
+        action = (f"DO UPDATE SET {assignments} WHERE {record('t')} IS DISTINCT FROM {record('EXCLUDED')}"
+                  if assignments else "DO NOTHING")
+        sql.append(f"WITH written AS (INSERT INTO {target} AS t ({cols}) SELECT {cols} FROM {incoming} ON CONFLICT ({', '.join(map(identifier, keys))}) {action} RETURNING 1) SELECT json_build_object('written', count(*)) FROM written;")
         sql.append(f"SELECT 1 / (NOT EXISTS (SELECT 1 FROM {incoming} s LEFT JOIN {target} t ON {joined('t','s')} WHERE {record('t')} IS DISTINCT FROM {record('s')}))::int AS {identifier('verified_' + table)};")
         sql.append(f"SELECT json_build_object('table', {literal(table)}, 'verified_rows', count(*)) FROM {incoming};")
     sql.append("ROLLBACK;" if dry_run else "COMMIT;")

@@ -35,5 +35,6 @@ services:
     mem_limit: 384m
     cpus: 0.50
     environment:
+      MULTICA_MIGRATION_WORKSPACE_SLUG: ${MULTICA_MIGRATION_WORKSPACE_SLUG:-}
       NODE_OPTIONS: --max-old-space-size=256
     logging: *logging

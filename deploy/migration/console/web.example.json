@@ -1,0 +1,9 @@
+{
+  "workspace_id": "00000000-0000-0000-0000-000000000001",
+  "slug": "example",
+  "origin": "https://multica.example.com",
+  "backend": "http://127.0.0.1:18080",
+  "jobs": "/var/lib/multica-reconcile/jobs.sqlite3",
+  "port": 18083,
+  "static_dir": "/usr/local/lib/multica-reconcile/static"
+}

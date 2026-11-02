@@ -6,6 +6,9 @@ change the Cloud service, redirect a daemon, change DNS, or perform a cutover.
 Use Python 3.10+ and a dedicated self-host database. This is an API-visible copy,
 not a native Cloud database backup.
 
+For repeated incremental syncs while Cloud remains in use, install the
+[workspace reconciliation console and server worker](console/README.md).
+
 ## Deploy alongside an existing HTTPS service
 
 1. Record existing listeners, free memory/disk, TLS names and existing vhost
@@ -120,7 +123,7 @@ python3 scripts/cloud_sync_reconcile.py \
   --expected-plan data/migration/plan-01/plan.json \
   --actual-plan data/migration/readback-plan/plan.json \
   --output data/migration/reconciliation.json
-python3 -m unittest discover -s scripts -p cloud_sync_test.py
+python3 -m unittest discover -s scripts -p 'cloud_sync*test.py'
 ```
 
 The report compares keys, counts and every stored API field, normalizing timestamp

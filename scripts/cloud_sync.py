@@ -32,16 +32,33 @@ def canonical(value):
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
 
 
+def stream_canonical(value, write):
+    """Emit the same UTF-8 JSON as canonical() without allocating a whole snapshot string."""
+    encoder = json.JSONEncoder(ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    buffer = bytearray()
+    for part in encoder.iterencode(value):
+        buffer.extend(part.encode())
+        if len(buffer) >= 65536:
+            write(buffer)
+            buffer.clear()
+    if buffer:
+        write(buffer)
+
+
 def digest(value):
-    return hashlib.sha256(canonical(value)).hexdigest()
+    sha = hashlib.sha256()
+    stream_canonical(value, sha.update)
+    return sha.hexdigest()
 
 
 def save(path, value):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     temporary = path.with_suffix(path.suffix + ".tmp")
-    temporary.write_bytes(canonical(value) + b"\n")
-    temporary.chmod(0o600)
+    with temporary.open("wb") as output:
+        temporary.chmod(0o600)
+        stream_canonical(value, output.write)
+        output.write(b"\n")
     temporary.replace(path)
 
 
@@ -187,9 +204,49 @@ def download_assets(api, snapshot_path, output):
     return manifest
 
 
+def contiguous_messages(rows, task_id, first=1):
+    return all(row.get("task_id") == task_id and row.get("seq") == seq
+               for seq, row in enumerate(rows, first))
+
+
+def read_task_messages(get, task, cache):
+    task_id = str(uuid.UUID(task["id"]))
+    path = f"/api/tasks/{task_id}/messages"
+    terminal = task["status"] in ("completed", "failed", "cancelled")
+    stamp = [task["status"], task.get("completed_at"), task.get("attempt")]
+    file = cache / (task_id + ".json") if cache and terminal else None
+    cached = None
+    if file and file.is_file():
+        try:
+            cached = json.loads(file.read_text())
+        except ValueError:
+            cached = None
+    reused = 0
+    rows = None
+    if isinstance(cached, dict) and cached.get("stamp") == stamp:
+        saved = cached.get("rows")
+        if (isinstance(saved, list) and saved and digest(saved) == cached.get("sha256")
+                and contiguous_messages(saved, task_id)):
+            # Re-read the boundary item. A reset, truncated prefix or server
+            # ignoring the cursor can invalidate this anchor; fetch the full log.
+            last = saved[-1]
+            tail = rows_of(get(f"{path}?since={last['seq'] - 1}")[0])
+            if tail and tail[0] == last and contiguous_messages(tail, task_id, last["seq"]):
+                rows = saved[:-1] + tail
+                reused = len(saved) - 1
+                if len(tail) == 1:
+                    return rows, reused
+    if rows is None:
+        rows = rows_of(get(path)[0])
+    if file and rows and contiguous_messages(rows, task_id):
+        save(file, {"stamp": stamp, "rows": rows, "sha256": digest(rows)})
+    return rows, reused
+
+
 class Exporter:
-    def __init__(self, api, output, resume=False):
+    def __init__(self, api, output, resume=False, message_cache=None):
         self.api = api
+        self.message_cache = message_cache
         self.output = Path(output)
         if (self.output / "snapshot.json").exists():
             raise SyncError("snapshot already exists; use a new output directory")
@@ -410,13 +467,18 @@ class Exporter:
                     raise SyncError("chat cursor missing")
                 cursor = {"before_created_at": next_cursor["created_at"], "before_id": next_cursor["id"]}
         self.objects["tasks"] = list(tasks.values())
-        self.prefetch(f"/api/tasks/{task['id']}/messages" for task in self.objects["tasks"])
-        for index, task in enumerate(self.objects["tasks"]):
-            if task["status"] not in ("completed", "failed", "cancelled"):
-                self.blockers.append(f"nonterminal task: {task['id']} ({task['status']})")
-            value, _ = self.get(f"/api/tasks/{task['id']}/messages")
-            self.objects["task_messages"].extend(rows_of(value))
-            print(f"run {index + 1}/{len(tasks)}", flush=True)
+        cache = None
+        if self.message_cache:
+            cache = Path(self.message_cache) / digest([self.api.base, self.api.workspace, me["id"]])
+        reused_messages = 0
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            logs = pool.map(lambda task: read_task_messages(self.get, task, cache), self.objects["tasks"])
+            for index, (task, (rows, reused)) in enumerate(zip(self.objects["tasks"], logs)):
+                if task["status"] not in ("completed", "failed", "cancelled"):
+                    self.blockers.append(f"nonterminal task: {task['id']} ({task['status']})")
+                self.objects["task_messages"].extend(rows)
+                reused_messages += reused
+                print(f"run {index + 1}/{len(tasks)}", flush=True)
         self.objects["attachments"] = list({row["id"]: row for row in self.objects["attachments"]}.values())
         # Uploads embedded directly in markdown may not be linked to the issue's
         # attachment list. Resolve these through the authenticated metadata API.
@@ -454,6 +516,10 @@ class Exporter:
             "unavailable_optional_surfaces": self.unavailable,
             "object_hashes": {name: digest(rows) for name, rows in self.objects.items()},
         }
+        stats = {"exported_at": snapshot["exported_at"], "reused_message_rows": reused_messages,
+                 "message_rows": len(self.objects["task_messages"]), "used_message_cache": cache is not None}
+        snapshot["read_stats"] = stats
+        save(self.output / "read-stats.json", stats)
         save(self.output / "snapshot.json", snapshot)
         print(json.dumps({"counts": {k: len(v) for k, v in self.objects.items()}, "blockers": self.blockers}), flush=True)
         return snapshot
@@ -495,6 +561,7 @@ def main():
     export.add_argument("--config", type=Path, required=True, help="existing CLI config; never modified")
     export.add_argument("--workspace", required=True)
     export.add_argument("--output", type=Path, required=True)
+    export.add_argument("--message-cache", type=Path, help="reuse verified terminal message prefixes with the official since cursor")
     export.add_argument("--resume", action="store_true", help="reuse verified reads from an interrupted export; re-export fresh before cutover")
     assets = sub.add_parser("assets", help="download attachment bytes with SHA-256 verification")
     assets.add_argument("--config", required=True, type=Path)
@@ -507,7 +574,7 @@ def main():
             snapshot = json.loads(args.snapshot.read_text())
             download_assets(API(config["server_url"], config["token"], snapshot["workspace_id"]), args.snapshot, args.output)
             return 0
-        snapshot = Exporter(API(config["server_url"], config["token"], args.workspace), args.output, args.resume).export()
+        snapshot = Exporter(API(config["server_url"], config["token"], args.workspace), args.output, args.resume, args.message_cache).export()
         return 2 if snapshot["blockers"] else 0
     except (SyncError, OSError, ValueError, KeyError) as exc:
         print(f"cloud-sync: {exc}", file=sys.stderr)
