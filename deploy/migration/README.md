@@ -32,8 +32,9 @@ For repeated incremental syncs while Cloud remains in use, install the
    local hosts entry. Keep public DNS and existing clients on Cloud during rehearsal.
 
 The storage base URL is intentionally empty: attachment metadata uses durable API
-download endpoints. Raw `/uploads/` is not exposed. New uploads follow the same
-policy. Some download URLs use a high-entropy capability; they are not all strictly
+download endpoints. Nginx also forwards `/uploads/` to the backend for local file
+previews. Raw upload URLs are served without session authentication. Some API
+download URLs use a high-entropy capability; they are not all strictly
 session-authenticated. Configure mail delivery for normal email-code login; without
 a mail provider the upstream self-host backend logs verification codes locally.
 
