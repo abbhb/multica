@@ -11,6 +11,10 @@ workspace and verified by checksum. It compares primary keys and fields with the
 
 Runs record the source additions, updates and removals, actual database writes, per-table counts, missing or extra keys, changed fields, snapshot blockers and independent target file hashes. Current runs defer nonterminal task history until a subsequent pass. Target-only records and source deletions appear in the report for review. History and the downloadable JSON report require the same permission as the page.
 
+Example with synthetic data and one missing target record.
+
+![Reconciliation console with an expanded example difference](preview.jpg)
+
 ## Provision a dedicated rehearsal stack
 
 1. Complete the initial import and API readback in [the migration guide](../README.md). Use an offline, single-workspace target. The incremental worker locks the affected tables and refuses to apply changes after a target runtime connects or a nonterminal target task appears.
