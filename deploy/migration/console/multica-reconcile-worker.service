@@ -1,0 +1,19 @@
+[Unit]
+Description=Multica incremental migration worker
+After=network-online.target docker.service multica-reconcile-web.service
+Requires=docker.service
+
+[Service]
+ExecStart=/usr/bin/python3 /usr/local/lib/multica-reconcile/cloud_sync_worker.py /etc/multica-reconcile/worker.json
+Restart=on-failure
+RestartSec=5
+Nice=10
+CPUQuota=75%
+MemoryHigh=400M
+MemoryMax=560M
+PrivateTmp=true
+NoNewPrivileges=true
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

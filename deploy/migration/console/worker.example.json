@@ -1,0 +1,9 @@
+{
+  "workspace_id": "00000000-0000-0000-0000-000000000001",
+  "origin": "https://multica.example.com",
+  "jobs": "/var/lib/multica-reconcile/jobs.sqlite3",
+  "project": "multica-migration",
+  "db_user": "multica",
+  "db_name": "multica",
+  "private_dir": "/opt/multica-migration/console"
+}

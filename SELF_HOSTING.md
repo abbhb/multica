@@ -2,6 +2,10 @@
 
 Deploy Multica on your own infrastructure in minutes.
 
+Already have Cloud data? The [Cloud migration rehearsal guide](deploy/migration/README.md)
+provides an isolated shared-host deployment, API export, transactional import,
+attachment verification and readback reconciliation before switching clients.
+
 ## Architecture
 
 | Component | Description | Technology |

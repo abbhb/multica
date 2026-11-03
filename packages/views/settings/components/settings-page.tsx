@@ -81,6 +81,7 @@ export interface ExtraSettingsTab {
 interface SettingsPageProps {
   /** Device settings supplied by the desktop platform. */
   extraDeviceTabs?: ExtraSettingsTab[];
+  reconciliationHref?: string;
 }
 
 type SettingsEntry = ExtraSettingsTab & {
@@ -124,7 +125,7 @@ const SETTINGS_HEADER_RAIL = cn(
 const FLASH_MS = 1600;
 const ANCHOR_WAIT_MS = 1500;
 
-export function SettingsPage({ extraDeviceTabs = [] }: SettingsPageProps = {}) {
+export function SettingsPage({ extraDeviceTabs = [], reconciliationHref }: SettingsPageProps = {}) {
   const { t } = useT("settings");
   const workspace = useCurrentWorkspace();
   const workspaceName = workspace?.name ?? t(($) => $.page.workspace_fallback);
@@ -200,6 +201,14 @@ export function SettingsPage({ extraDeviceTabs = [] }: SettingsPageProps = {}) {
             entry("workspace", t(($) => $.page.tabs.general), Settings, <WorkspaceTab />, {
               adminOnly: true,
             }),
+            ...(reconciliationHref && (role === "owner" || role === "admin")
+              ? [entry("reconciliation", t(($) => $.page.tabs.reconciliation), Server,
+                  <a href={reconciliationHref} target="_blank" rel="noopener noreferrer"
+                    className="text-foreground underline underline-offset-4">
+                    {t(($) => $.page.open_reconciliation)}
+                  </a>,
+                  { wide: true, adminOnly: true })]
+              : []),
             entry("members", t(($) => $.page.tabs.members), Users, <MembersTab />, {
               adminOnly: true,
             }),
@@ -387,7 +396,9 @@ export function SettingsPage({ extraDeviceTabs = [] }: SettingsPageProps = {}) {
   const navItem = (item: SettingsEntry) => (
     <li key={item.value}>
       <AppLink
-        href={href(item.value)}
+        href={item.value === "reconciliation" && reconciliationHref ? reconciliationHref : href(item.value)}
+        target={item.value === "reconciliation" ? "_blank" : undefined}
+        rel={item.value === "reconciliation" ? "noopener noreferrer" : undefined}
         aria-current={active.value === item.value ? "page" : undefined}
         className={cn(
           "flex min-h-8 items-center gap-2.5 rounded-lg px-3 py-1.5 text-body transition-colors focus-visible:outline-2 focus-visible:outline-ring",
