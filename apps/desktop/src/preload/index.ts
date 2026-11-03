@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, webFrame } from "electron";
 import { electronAPI } from "@electron-toolkit/preload";
 import type { RuntimeConfigResult } from "../shared/runtime-config";
 import type { FreezeBreadcrumb } from "../shared/freeze-breadcrumb";
@@ -112,6 +112,7 @@ const desktopAPI = {
   /** App version + normalized OS. Read once at preload time so the renderer
    *  can use it synchronously when initializing the API client. */
   appInfo,
+  getZoomFactor: () => webFrame.getZoomFactor(),
   /** OS-preferred locale (BCP 47), passed from main via additionalArguments.
    *  Used by the renderer's LocaleAdapter as the system-preference signal. */
   systemLocale,

@@ -31,13 +31,16 @@ import { useT } from "@multica/views/i18n";
 import { useTabHistory } from "@/hooks/use-tab-history";
 import { browsingHistoryKeyForUrl } from "@/stores/tab-store";
 
-// Controls sit left-aligned just past the macOS traffic lights, which end
-// around x=76 with trafficLightPosition { x: 16 }. The clearance covers that
-// inset plus Back, Forward and the panel toggle (3 × 28px, 2 × 8px gaps) and
-// a 12px trailing pad. It spans the rail and the start of the tab bar, which
-// pads itself past it.
+// Native traffic lights do not scale with Chromium's page zoom.
 const TRAFFIC_LIGHT_CLEARANCE = 88;
 export const WINDOW_TOOLBAR_CLEARANCE = 200;
+export function windowToolbarClearance(zoomFactor: number): number {
+  return (
+    WINDOW_TOOLBAR_CLEARANCE +
+    TRAFFIC_LIGHT_CLEARANCE / zoomFactor -
+    TRAFFIC_LIGHT_CLEARANCE
+  );
+}
 const LONG_PRESS_DURATION_MS = 500;
 const LONG_PRESS_MOVE_TOLERANCE_PX = 8;
 const MAX_HISTORY_MENU_ITEMS = 30;
@@ -175,7 +178,7 @@ function HistoryMenuItem({
   );
 }
 
-export function WindowToolbar() {
+export function WindowToolbar({ zoomFactor = 1 }: { zoomFactor?: number }) {
   const { t } = useT("layout");
   const shell = useAppShell();
   const {
@@ -257,8 +260,8 @@ export function WindowToolbar() {
       style={
         {
           WebkitAppRegion: "drag",
-          width: WINDOW_TOOLBAR_CLEARANCE,
-          paddingLeft: TRAFFIC_LIGHT_CLEARANCE,
+          width: windowToolbarClearance(zoomFactor),
+          paddingLeft: TRAFFIC_LIGHT_CLEARANCE / zoomFactor,
         } as React.CSSProperties
       }
     >
