@@ -128,6 +128,8 @@ function renderShell() {
   (
     window as unknown as { desktopAPI: Record<string, unknown> }
   ).desktopAPI = {
+    appInfo: { os: "macos", version: "test" },
+    getZoomFactor: () => 1,
     onNavigationGesture: () => () => {},
     onInboxOpen: () => () => {},
   };

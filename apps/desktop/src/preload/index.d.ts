@@ -24,6 +24,8 @@ interface DesktopAPI {
     version: string;
     os: "macos" | "windows" | "linux" | "unknown";
   };
+  /** Renderer zoom factor, used to keep native window controls unobstructed. */
+  getZoomFactor: () => number;
   /** OS-preferred locale (BCP 47) injected by main via additionalArguments. */
   systemLocale: string;
   /** Subscribe to OS language changes detected after boot. Returns an unsubscribe function. */

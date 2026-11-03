@@ -11,6 +11,8 @@ import { RESOURCES } from "@multica/views/locales";
 // the rail under test never renders. Gating behaviour itself is covered by
 // desktop-layout.workspace-gate.test.tsx.
 const WORKSPACES = [{ id: "ws-1", slug: "acme" }];
+let zoomFactor = 1;
+let platform = "macos";
 
 // The shell is the only thing under test here, so everything it mounts around
 // the rail is stubbed out. What survives is the pair that has to agree:
@@ -118,6 +120,8 @@ function renderShell() {
   (
     window as unknown as { desktopAPI: Record<string, unknown> }
   ).desktopAPI = {
+    appInfo: { os: platform, version: "test" },
+    getZoomFactor: () => zoomFactor,
     onNavigationGesture: () => () => {},
     onInboxOpen: () => () => {},
   };
@@ -137,6 +141,8 @@ function renderShell() {
 }
 
 beforeEach(() => {
+  zoomFactor = 1;
+  platform = "macos";
   Object.defineProperty(window, "innerWidth", {
     configurable: true,
     value: 1280,
@@ -145,6 +151,28 @@ beforeEach(() => {
 });
 
 describe("DesktopShell sidebar trigger", () => {
+  it("keeps the macOS controls clear and the tabs aligned when the page is zoomed", () => {
+    const { container } = renderShell();
+    const toolbar = container.querySelector<HTMLElement>('[data-slot="window-toolbar"]')!;
+    const topBar = container.querySelector<HTMLElement>('[data-slot="main-top-bar"]')!;
+
+    for (const factor of [0.76, 0.58, 1, 1.2]) {
+      zoomFactor = factor;
+      fireEvent.resize(window);
+      const trafficLightInset = parseFloat(toolbar.style.paddingLeft);
+      const toolbarWidth = parseFloat(toolbar.style.width);
+      expect(trafficLightInset * factor).toBeCloseTo(88);
+      expect(parseFloat(topBar.style.paddingLeft) + 64).toBeCloseTo(toolbarWidth);
+    }
+  });
+
+  it("keeps existing toolbar spacing on non-macOS platforms", () => {
+    platform = "windows";
+    zoomFactor = 0.58;
+    const { container } = renderShell();
+    const toolbar = container.querySelector('[data-slot="window-toolbar"]');
+    expect(toolbar).toHaveStyle({ paddingLeft: "88px", width: "200px" });
+  });
   // The window toolbar parks a trigger beside the traffic lights that never
   // scrolls away, so nothing inside the canvas may add a second one. Desktop
   // windows often sit in the band where `PageHeader`'s fallback trigger
