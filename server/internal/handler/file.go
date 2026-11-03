@@ -183,7 +183,7 @@ func (h *Handler) attachmentToResponse(a db.Attachment, mode attachmentURLMode) 
 	// Only CloudFront mode overrides the stable path here; the presign and proxy
 	// modes already leave DownloadURL as the stable path and resolve it at
 	// download time, so stable mode is a no-op for them.
-	if h.CFSigner != nil && mode != attachmentURLModeStable {
+	if _, local := h.Storage.(*storage.LocalStorage); !local && h.CFSigner != nil && mode != attachmentURLModeStable {
 		resp.DownloadURL = h.CFSigner.SignedURL(a.Url, time.Now().Add(h.attachmentDownloadURLTTL()))
 	}
 	if a.Width.Valid && a.Height.Valid {
@@ -666,7 +666,7 @@ func (h *Handler) UploadFile(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]string{
 		"id":       id.String(),
-		"url":      link,
+		"url":      h.resolveAvatarURL(link),
 		"filename": header.Filename,
 	})
 }
@@ -990,6 +990,9 @@ func (h *Handler) DownloadAttachment(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) resolveAttachmentDownloadMode(rawURL string) attachmentDownloadMode {
+	if _, local := h.Storage.(*storage.LocalStorage); local {
+		return attachmentDownloadModeProxy
+	}
 	switch h.attachmentDownloadMode() {
 	case attachmentDownloadModeCloudFront:
 		return attachmentDownloadModeCloudFront
