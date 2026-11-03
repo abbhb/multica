@@ -14,9 +14,8 @@
  * are counted the same way on every client (mobile parity rule: mirror the
  * shared logic, own the UI).
  *
- * The URIs are resolved the same way `MarkdownImage` resolves the one it
- * renders — same attachment match, same `resolveAttachmentUrl` pass — so the
- * URI a tap reports is the one the sequence holds. Bodies go through the
+ * Stable attachment identities match the renderer and remain unchanged when
+ * native previews refresh short-lived download capabilities. Bodies go through the
  * renderer's HTML pass first: mobile shows `<img>` as a Markdown image, whose
  * URL is entity-decoded and normalized, and drops the tags around it. Image
  * file cards are decided by the same rule on both sides (see
@@ -28,16 +27,16 @@ import {
   collectImageSequence,
   type ImageSequenceBlock,
 } from "@multica/core/attachments/image-sequence";
-import { resolveAttachmentUrl } from "@/lib/attachment-url";
+import { attachmentMedia, type AttachmentMedia } from "@/lib/attachment-media";
 import { stripHtml } from "./preprocess";
 
-const ImageSequenceContext = createContext<readonly string[]>([]);
+const ImageSequenceContext = createContext<readonly AttachmentMedia[]>([]);
 
 /**
  * Resolved image URIs for the surrounding screen, in render order. Empty when
  * no provider is mounted — the lightbox then shows the tapped image alone.
  */
-export function useImageSequence(): readonly string[] {
+export function useImageSequence(): readonly AttachmentMedia[] {
   return use(ImageSequenceContext);
 }
 
@@ -60,7 +59,7 @@ export function ImageSequenceProvider({
         const url = !item.imageByConstruction && !item.attachment
           ? normalizeUri(item.url)
           : item.url;
-        return resolveAttachmentUrl(url) ?? url;
+        return attachmentMedia(url, item.attachment ? [item.attachment] : undefined);
       }),
     [blocks],
   );

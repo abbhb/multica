@@ -10,15 +10,10 @@
  *   - Tap dispatches into the global LightboxProvider for fullscreen
  *     viewing with pinch-zoom + swipe-down-to-dismiss.
  *
- * URI resolution: markdown content authored in Multica stores image
- * references using the internal `mc://file/<id>` scheme rather than
- * baking signed HTTPS URLs into the content (signed URLs expire). iOS
- * doesn't understand `mc://`, so we look the URI up in the supplied
- * `attachments` list and swap it for the matching `download_url` before
- * passing to any image API. Unmatched URIs fall through unchanged —
- * external https links and well-known schemes load directly; an
- * unknown reference fails the getSize callback and we fall back to a
- * 16:9 placeholder slot.
+ * URI resolution: known attachment records are resolved through the mobile
+ * authenticated metadata API. Native image requests receive only short-lived
+ * capability URLs, never the session token. Capabilities refresh while mounted;
+ * unknown/external images retain their original URL.
  *
  * Cancellation: a content re-render that swaps the URI must not let the
  * previous getSize callback overwrite state — guard with a `cancelled`
@@ -28,8 +23,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Image as RNImage, Pressable, View } from "react-native";
 import { Image as ExpoImage } from "expo-image";
 import type { Attachment } from "@multica/core/types";
-import { matchAttachmentByURL } from "@multica/core/attachments/image-sequence";
-import { resolveAttachmentUrl } from "@/lib/attachment-url";
+import { attachmentMedia } from "@/lib/attachment-media";
+import { useAttachmentMedia } from "@/lib/use-attachment-media";
 import { useLightbox } from "./lightbox-provider";
 import { useImageSequence } from "./image-sequence";
 
@@ -44,29 +39,11 @@ export function MarkdownImage({ uri, attachments }: Props) {
   const sequence = useImageSequence();
   const [aspect, setAspect] = useState<number | null>(null);
 
-  const resolvedUri = useMemo(() => {
-    // mc://file/<id> → look up the matching attachment's loadable URL.
-    // No match (external link, html https URL, or unresolved mc://) falls
-    // through to the original uri.
-    //
-    // `matchAttachmentByURL` + this URL pick are the ones the shared sequence
-    // builder uses, so the URI a tap reports is byte-identical to the one
-    // `ImageSequenceProvider` put in the array — otherwise the lightbox could
-    // not find its position and would silently drop back to a single image.
-    const match = matchAttachmentByURL(uri, attachments);
-    const candidate: string | null | undefined = match
-      ? match.download_url || match.markdown_url || match.url
-      : uri;
-    // The backend may return a server-relative `download_url` (e.g.
-    // `/api/attachments/{id}/download`) when no CloudFront signer is
-    // configured — see MUL-2976. RN's image loader has no document
-    // origin to resolve against, so prepend `EXPO_PUBLIC_API_URL` for
-    // server-relative paths and let absolute URLs / external links pass
-    // through unchanged.
-    return resolveAttachmentUrl(candidate) ?? uri;
-  }, [uri, attachments]);
+  const media = useMemo(() => attachmentMedia(uri, attachments), [uri, attachments]);
+  const resolvedUri = useAttachmentMedia(media);
 
   useEffect(() => {
+    if (!resolvedUri) return;
     let cancelled = false;
     RNImage.getSize(
       resolvedUri,
@@ -87,11 +64,12 @@ export function MarkdownImage({ uri, attachments }: Props) {
   }, [resolvedUri]);
 
   return (
-    <Pressable onPress={() => open(resolvedUri, sequence)}>
+    <Pressable onPress={() => open(media, sequence)}>
       <View className="rounded-lg overflow-hidden bg-muted">
         <ExpoImage
-          source={{ uri: resolvedUri }}
+          source={resolvedUri ? { uri: resolvedUri } : undefined}
           style={{ width: "100%", aspectRatio: aspect ?? 16 / 9 }}
+          cachePolicy={media.attachmentId ? "none" : "disk"}
           contentFit="contain"
           transition={150}
         />
