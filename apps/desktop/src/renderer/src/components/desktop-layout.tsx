@@ -42,7 +42,7 @@ import { useRenderedRouteStore } from "@/stores/rendered-route-store";
 import { TabBar } from "./tab-bar";
 import { TabContent } from "./tab-content";
 import { WindowOverlay } from "./window-overlay";
-import { WindowToolbar, WINDOW_TOOLBAR_CLEARANCE } from "./window-toolbar";
+import { WindowToolbar, windowToolbarClearance } from "./window-toolbar";
 
 const TOP_BAR_HEIGHT_CLASS = "h-10";
 const RAIL_WIDTH = 56;
@@ -70,12 +70,19 @@ function useNativeNavigationGestures() {
 // toolbar (traffic lights, history, panel toggle) floats over the rail and
 // the start of this bar, so the tabs start past whatever the rail leaves of
 // its width.
-function MainTopBar({ railMounted }: { railMounted: boolean }) {
+function MainTopBar({
+  railMounted,
+  zoomFactor,
+}: {
+  railMounted: boolean;
+  zoomFactor: number;
+}) {
   const { isCompact } = useSidebar();
+  const windowClearance = windowToolbarClearance(zoomFactor);
   const toolbarClearance =
     railMounted && !isCompact
-      ? WINDOW_TOOLBAR_CLEARANCE - RAIL_WIDTH
-      : WINDOW_TOOLBAR_CLEARANCE;
+      ? windowClearance - RAIL_WIDTH
+      : windowClearance;
 
   return (
     <header
@@ -194,10 +201,26 @@ function DesktopInboxBridge() {
   return null;
 }
 
+function subscribeToWindowResize(callback: () => void) {
+  window.addEventListener("resize", callback);
+  return () => window.removeEventListener("resize", callback);
+}
+
+function getTitleBarZoomFactor() {
+  return window.desktopAPI.appInfo.os === "macos"
+    ? window.desktopAPI.getZoomFactor()
+    : 1;
+}
+
 export function DesktopShell() {
   useInternalLinkHandler();
   useNativeNavigationGestures();
   useNavigationInputBindings();
+  const zoomFactor = useSyncExternalStore(
+    subscribeToWindowResize,
+    getTitleBarZoomFactor,
+    () => 1,
+  );
 
   // Reactive read of current workspace slug from the platform singleton.
   // On first mount, it is null until WorkspaceRouteLayout (inside the tab
@@ -265,7 +288,7 @@ export function DesktopShell() {
             <AppShellProvider renderedPathname={renderedPathname}>
               <ShellRouteDataPrefetch>
                 {slug && <GlobalShortcuts />}
-                {slug && <WindowToolbar />}
+                {slug && <WindowToolbar zoomFactor={zoomFactor} />}
                 {slug && (
                   <AppRail
                     topSlot={<RailTopSpacer />}
@@ -277,7 +300,7 @@ export function DesktopShell() {
                 {slug && <CompactNavSheet />}
                 {/* Right side: header + content card */}
                 <div className="flex flex-1 min-w-0 flex-col">
-                  <MainTopBar railMounted={Boolean(slug)} />
+                  <MainTopBar railMounted={Boolean(slug)} zoomFactor={zoomFactor} />
                   <MainCanvas railMounted={Boolean(slug)} showWorkspaceLoading={!slug}>
                     {/* Same indicator, same anchor as web: DashboardLayout puts
                         it at the top of the content column, and this is
