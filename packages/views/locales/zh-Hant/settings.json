@@ -386,10 +386,12 @@
     "remove_failed_toast": "無法移除共享 MCP Server"
   },
   "page": {
+    "open_reconciliation": "開啟資料核對頁面",
     "title": "設定",
     "my_account": "我的帳號",
     "workspace_fallback": "工作區",
     "tabs": {
+      "reconciliation": "資料核對",
       "profile": "個人資料",
       "preferences": "偏好設定",
       "shortcuts": "快捷鍵",

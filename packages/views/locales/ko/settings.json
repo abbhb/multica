@@ -386,10 +386,12 @@
     "remove_failed_toast": "공유 MCP 서버를 제거하지 못했습니다"
   },
   "page": {
+    "open_reconciliation": "데이터 대조 화면 열기",
     "title": "설정",
     "my_account": "내 계정",
     "workspace_fallback": "워크스페이스",
     "tabs": {
+      "reconciliation": "데이터 대조",
       "profile": "프로필",
       "preferences": "환경설정",
       "shortcuts": "단축키",

@@ -180,6 +180,27 @@ describe("SettingsPage nav trigger", () => {
   });
 });
 
+describe("self-host reconciliation settings", () => {
+  it("opens the deployment-provided console for the workspace owner", () => {
+    layout.compact = false;
+    navigationState.search = "tab=reconciliation";
+    renderWithI18n(<SettingsPage reconciliationHref="/acme/reconciliation" />);
+    const link = within(nav()).getByRole("link", { name: "Data reconciliation" });
+    expect(link).toHaveAttribute("href", "/acme/reconciliation");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(screen.getByRole("link", { name: "Open reconciliation console" })).toHaveAttribute("href", "/acme/reconciliation");
+  });
+
+  it("hides the console from members, including direct settings links", () => {
+    layout.compact = false;
+    shell.role = "member";
+    navigationState.search = "tab=reconciliation";
+    renderWithI18n(<SettingsPage reconciliationHref="/acme/reconciliation" />);
+    expect(screen.queryByRole("link", { name: "Open reconciliation console" })).not.toBeInTheDocument();
+    expect(within(nav()).queryByRole("link", { name: "Data reconciliation" })).not.toBeInTheDocument();
+  });
+});
+
 describe("SettingsPage header", () => {
   function pageHeader() {
     return within(screen.getByRole("banner"));

@@ -388,10 +388,12 @@
     "remove_failed_toast": "Impossible de retirer le serveur MCP partagé"
   },
   "page": {
+    "open_reconciliation": "Ouvrir le rapprochement des données",
     "title": "Paramètres",
     "my_account": "Mon compte",
     "workspace_fallback": "Espace de travail",
     "tabs": {
+      "reconciliation": "Rapprochement des données",
       "profile": "Profil",
       "preferences": "Préférences",
       "shortcuts": "Raccourcis",

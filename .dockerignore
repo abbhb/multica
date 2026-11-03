@@ -12,6 +12,9 @@ server/tmp
 .git
 .gitignore
 
+# Private rehearsal data and credentials
+/data/
+
 # Environment
 .env
 .env.*

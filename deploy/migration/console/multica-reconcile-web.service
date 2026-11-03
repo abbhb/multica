@@ -1,0 +1,19 @@
+[Unit]
+Description=Multica reconciliation management page
+After=network.target docker.service
+
+[Service]
+User=multica-reconcile
+StateDirectory=multica-reconcile
+StateDirectoryMode=0700
+ExecStart=/usr/bin/python3 /usr/local/lib/multica-reconcile/cloud_sync_console.py /etc/multica-reconcile/web.json
+Restart=on-failure
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+UMask=0077
+MemoryMax=80M
+
+[Install]
+WantedBy=multi-user.target
