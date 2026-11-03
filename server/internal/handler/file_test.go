@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/multica-ai/multica/server/internal/auth"
 	"github.com/multica-ai/multica/server/internal/storage"
 	"github.com/multica-ai/multica/server/internal/testutil"
@@ -1959,13 +1960,13 @@ func TestIsDurablePublicURL(t *testing.T) {
 
 // TestServeLocalUpload_RelaxesFrameAncestorsForPreview covers the self-hosted
 // local-disk case where document previews (PDF/HTML) are fetched straight from
-// the public /uploads/* static route. That route inherits the global
+// the authorized /uploads/* route. That route inherits the global
 // "frame-ancestors 'none'" CSP from the middleware, which blocks iframe
 // previews; ServeLocalUpload must overwrite it with the same relaxed preview
 // policy the /api/attachments download endpoint uses. See MUL-3821 / #4477.
 func TestServeLocalUpload_RelaxesFrameAncestorsForPreview(t *testing.T) {
 	dir := t.TempDir()
-	key := "workspaces/ws-1/preview.pdf"
+	key := "users/test-user/preview.pdf"
 	full := filepath.Join(dir, filepath.FromSlash(key))
 	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
@@ -1988,6 +1989,7 @@ func TestServeLocalUpload_RelaxesFrameAncestorsForPreview(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodGet, "/uploads/"+key, nil)
+	req.Header.Set("X-User-ID", "test-user")
 	w := httptest.NewRecorder()
 	// Simulate the global CSP middleware having already stamped the strict
 	// policy on the response before the static route runs.
@@ -2014,5 +2016,57 @@ func TestServeLocalUpload_NonLocalStorage404(t *testing.T) {
 	h.ServeLocalUpload(w, req)
 	if w.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want 404", w.Code)
+	}
+}
+
+func TestServeLocalUpload_DeniesUnownedAndMalformedKeys(t *testing.T) {
+	t.Setenv("LOCAL_UPLOAD_DIR", t.TempDir())
+	h := &Handler{Storage: storage.NewLocalStorageFromEnv()}
+	for _, key := range []string{"users/other/test.png", "users/me/../other/test.png", "unknown/me/test.png", "users/me/"} {
+		req := httptest.NewRequest(http.MethodGet, "/uploads/"+key, nil)
+		req.Header.Set("X-User-ID", "me")
+		w := httptest.NewRecorder()
+		h.ServeLocalUpload(w, req)
+		if w.Code != http.StatusNotFound {
+			t.Errorf("%s: got %d", key, w.Code)
+		}
+	}
+}
+
+func TestServeLocalUpload_MigratedAttachmentRequiresMembership(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("LOCAL_UPLOAD_DIR", dir)
+	local := storage.NewLocalStorageFromEnv()
+	withAvatarStorage(t, local, "")
+	id := seedAttachmentURL(t, "placeholder", "migrated.png", "image/png", 1)
+	key := "cloud-sync/" + id
+	if _, err := testPool.Exec(context.Background(), "UPDATE attachment SET url = $1 WHERE id = $2", local.ObjectURL(key), id); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "cloud-sync"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, key), []byte("private"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	cases := []struct {
+		user, actor, workspace string
+		want                   int
+	}{
+		{testUserID, "", "", http.StatusOK},
+		{uuid.NewString(), "", "", http.StatusNotFound},
+		{testUserID, "task_token", uuid.NewString(), http.StatusNotFound},
+		{testUserID, "task_token", testWorkspaceID, http.StatusOK},
+	}
+	for _, tc := range cases {
+		req := httptest.NewRequest(http.MethodGet, "/uploads/"+key, nil)
+		req.Header.Set("X-User-ID", tc.user)
+		req.Header.Set("X-Actor-Source", tc.actor)
+		req.Header.Set("X-Workspace-ID", tc.workspace)
+		rec := httptest.NewRecorder()
+		testHandler.ServeLocalUpload(rec, req)
+		if rec.Code != tc.want {
+			t.Errorf("actor=%s workspace=%s got %d want %d", tc.actor, tc.workspace, rec.Code, tc.want)
+		}
 	}
 }
