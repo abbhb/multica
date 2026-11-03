@@ -176,7 +176,7 @@ func (h *Handler) attachmentToResponse(a db.Attachment, mode attachmentURLMode) 
 	// Only CloudFront mode overrides the stable path here; the presign and proxy
 	// modes already leave DownloadURL as the stable path and resolve it at
 	// download time, so stable mode is a no-op for them.
-	if h.CFSigner != nil && mode != attachmentURLModeStable {
+	if _, local := h.Storage.(*storage.LocalStorage); !local && h.CFSigner != nil && mode != attachmentURLModeStable {
 		resp.DownloadURL = h.CFSigner.SignedURL(a.Url, time.Now().Add(h.attachmentDownloadURLTTL()))
 	}
 	if a.IssueID.Valid {
@@ -206,9 +206,7 @@ func (h *Handler) attachmentToResponse(a db.Attachment, mode attachmentURLMode) 
 //
 //  1. Persist `a.Url` only when the deployment has signaled the storage
 //     backend serves URLs publicly without per-request auth:
-//     - `Storage.CdnDomain()` is non-empty (operator configured a
-//     public-facing base URL — `S3_CDN_DOMAIN` for the S3 backend or
-//     `LOCAL_UPLOAD_BASE_URL` for LocalStorage), AND
+//     - `Storage.CdnDomain()` is non-empty for a public S3 CDN, AND
 //     - `h.CFSigner` is nil (no per-request CloudFront signing — when
 //     signing is on, the same CDN domain serves PRIVATE content via
 //     time-bounded signed URLs and the raw `a.Url` is unauth-deny),
@@ -250,6 +248,9 @@ func (h *Handler) buildMarkdownURL(a db.Attachment, id string) string {
 // fetch — the only case where it is safe to persist `a.Url` into a markdown
 // body that will outlive the current session.
 func (h *Handler) storageURLIsPubliclyReadable(rawURL string) bool {
+	if _, local := h.Storage.(*storage.LocalStorage); local {
+		return false
+	}
 	if h.Storage == nil || h.CFSigner != nil {
 		// CFSigner != nil is per-request signing; the CDN domain serves
 		// private content via signed URLs and `a.Url` is the raw S3 URL.
@@ -626,7 +627,7 @@ func (h *Handler) UploadFile(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]string{
 		"id":       id.String(),
-		"url":      link,
+		"url":      h.resolveAvatarURL(link),
 		"filename": header.Filename,
 	})
 }
@@ -907,6 +908,9 @@ func (h *Handler) DownloadAttachment(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) resolveAttachmentDownloadMode(rawURL string) attachmentDownloadMode {
+	if _, local := h.Storage.(*storage.LocalStorage); local {
+		return attachmentDownloadModeProxy
+	}
 	switch h.attachmentDownloadMode() {
 	case attachmentDownloadModeCloudFront:
 		return attachmentDownloadModeCloudFront
@@ -958,8 +962,7 @@ func shouldProxyAttachmentURL(rawURL string) bool {
 	return false
 }
 
-// ServeLocalUpload serves a local-disk object from the public /uploads/*
-// route. It carries the same preview security headers as the authenticated
+// ServeLocalUpload serves an authorized local-disk object from /uploads/*. It carries the same preview security headers as the authenticated
 // download endpoint so self-hosted deployments — same-origin or split
 // frontend/backend origins — can inline-render images and iframe-preview
 // documents (PDF/HTML) fetched straight from the static route. Without these
@@ -971,8 +974,71 @@ func (h *Handler) ServeLocalUpload(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	h.setAttachmentPreviewSecurityHeaders(w)
 	key := strings.TrimPrefix(r.URL.Path, "/uploads/")
+	parts := strings.Split(key, "/")
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+	if len(parts) < 2 {
+		http.NotFound(w, r)
+		return
+	}
+	for _, part := range parts {
+		if part == "" || part == "." || part == ".." {
+			http.NotFound(w, r)
+			return
+		}
+	}
+	switch parts[0] {
+	case "users":
+		if len(parts) < 3 || parts[1] != userID || r.Header.Get("X-Actor-Source") == "task_token" {
+			http.NotFound(w, r)
+			return
+		}
+	case "workspaces":
+		if len(parts) < 3 {
+			http.NotFound(w, r)
+			return
+		}
+		if r.Header.Get("X-Actor-Source") == "task_token" && r.Header.Get("X-Workspace-ID") != parts[1] {
+			http.NotFound(w, r)
+			return
+		}
+		if _, err := h.getWorkspaceMember(r.Context(), userID, parts[1]); err != nil {
+			http.NotFound(w, r)
+			return
+		}
+	case "cloud-sync":
+		if len(parts) != 2 {
+			http.NotFound(w, r)
+			return
+		}
+		id, err := util.ParseUUID(parts[1])
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		att, err := h.Queries.GetAttachmentByIDOnly(r.Context(), id)
+		if err != nil || h.Storage.KeyFromURL(att.Url) != key {
+			http.NotFound(w, r)
+			return
+		}
+		workspaceID := uuidToString(att.WorkspaceID)
+		if r.Header.Get("X-Actor-Source") == "task_token" && r.Header.Get("X-Workspace-ID") != workspaceID {
+			http.NotFound(w, r)
+			return
+		}
+		if _, err := h.getWorkspaceMember(r.Context(), userID, workspaceID); err != nil {
+			http.NotFound(w, r)
+			return
+		}
+	default:
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Cache-Control", "private, no-store")
+	h.setAttachmentPreviewSecurityHeaders(w)
 	local.ServeFile(w, r, key)
 }
 

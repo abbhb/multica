@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -516,5 +517,27 @@ func TestLocalStorage_GetReader_MissingKey(t *testing.T) {
 	if rc, err := store.GetReader(context.Background(), "nonexistent.txt"); err == nil {
 		rc.Close()
 		t.Fatal("GetReader should error on missing key")
+	}
+}
+
+func TestLocalStorage_ServeFile_RejectsDirectories(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "nested"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "nested", "secret.txt"), []byte("secret"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	store := &LocalStorage{uploadDir: dir}
+	for _, key := range []string{"", "nested", "nested/"} {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/uploads/"+key, nil)
+		store.ServeFile(rec, req, key)
+		if rec.Code != http.StatusNotFound {
+			t.Errorf("%q: got %d", key, rec.Code)
+		}
+		if strings.Contains(rec.Body.String(), "secret.txt") {
+			t.Errorf("%q: directory listing exposed", key)
+		}
 	}
 }

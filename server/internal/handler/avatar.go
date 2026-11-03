@@ -204,6 +204,7 @@ func (h *Handler) normalizeStoredAvatarURL(raw string) string {
 // accepted without re-validation: clients round-trip whole objects, and a
 // value that is already persisted grants nothing new.
 func (h *Handler) acceptAvatarURL(w http.ResponseWriter, r *http.Request, raw, current string) (string, bool) {
+	_, signedAvatar := avatarKeyFromServedURL(strings.TrimSpace(raw))
 	value := h.normalizeStoredAvatarURL(strings.TrimSpace(raw))
 	if h.Storage == nil || value == strings.TrimSpace(current) {
 		return value, true
@@ -214,6 +215,36 @@ func (h *Handler) acceptAvatarURL(w http.ResponseWriter, r *http.Request, raw, c
 	key := h.ownedStorageKey(value)
 	if key == "" {
 		return value, true
+	}
+	if _, local := h.Storage.(*storage.LocalStorage); local && !signedAvatar {
+		parts := strings.Split(key, "/")
+		userID, ok := requireUserID(w, r)
+		if !ok {
+			return "", false
+		}
+		if len(parts) < 3 {
+			writeError(w, http.StatusForbidden, "invalid avatar upload")
+			return "", false
+		}
+		switch parts[0] {
+		case "users":
+			if parts[1] != userID || r.Header.Get("X-Actor-Source") == "task_token" {
+				writeError(w, http.StatusForbidden, "invalid avatar upload")
+				return "", false
+			}
+		case "workspaces":
+			if r.Header.Get("X-Actor-Source") == "task_token" && r.Header.Get("X-Workspace-ID") != parts[1] {
+				writeError(w, http.StatusForbidden, "invalid avatar upload")
+				return "", false
+			}
+			if _, err := h.getWorkspaceMember(r.Context(), userID, parts[1]); err != nil {
+				writeError(w, http.StatusForbidden, "invalid avatar upload")
+				return "", false
+			}
+		default:
+			writeError(w, http.StatusForbidden, "invalid avatar upload")
+			return "", false
+		}
 	}
 	if !h.avatarKeyIsPublishable(r.Context(), key) {
 		writeError(w, http.StatusForbidden, "avatar_url must reference a standalone image upload, not a file attached to an issue, comment, or chat")
@@ -230,6 +261,11 @@ func (h *Handler) acceptAvatarURL(w http.ResponseWriter, r *http.Request, raw, c
 // uses it as both the row id and the object filename, so this resolves the
 // backing row without a lookup by URL (and without an index on it).
 func (h *Handler) avatarKeyIsPublishable(ctx context.Context, key string) bool {
+	if _, local := h.Storage.(*storage.LocalStorage); local {
+		if key == "" || key != path.Clean(key) || strings.HasPrefix(key, "/") || strings.Contains(key, "\\") {
+			return false
+		}
+	}
 	if avatarContentType(key) == "" {
 		return false
 	}
@@ -303,10 +339,9 @@ func (h *Handler) ownedStorageKey(rawURL string) string {
 // already loadable by an unauthenticated browser fetch, in which case
 // rewriting it would only add a pointless hop through the API.
 func (h *Handler) avatarObjectLoadsUnauthenticated(rawURL string) bool {
-	// LocalStorage objects are served by the public /uploads/* route, whether
-	// the stored URL is site-relative or absolute via LOCAL_UPLOAD_BASE_URL.
+	// Local storage raw URLs require authorization.
 	if _, ok := h.Storage.(*storage.LocalStorage); ok {
-		return true
+		return false
 	}
 	// Otherwise: a public CDN domain with no per-request CloudFront signing.
 	// In signed-CloudFront mode the same domain serves private content and the

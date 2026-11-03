@@ -733,6 +733,17 @@ class ApiClient {
     );
   }
 
+  // Native image loaders and Safari cannot send the app's Bearer token.
+  // This authenticated lookup returns a fresh, short-lived capability URL.
+  async getAttachmentForDownload(id: string, opts?: { signal?: AbortSignal }): Promise<Attachment | null> {
+    return this.fetchValidated<Attachment | null>(
+      `/api/attachments/${encodeURIComponent(id)}/download-metadata`,
+      AttachmentSchema.nullable(),
+      null,
+      { ...opts, endpoint: "GET /api/attachments/:id/download-metadata" },
+    );
+  }
+
   // Active tasks for an issue (status in queued/dispatched/running). Returns
   // the inner `tasks` array directly — handler wraps it in `{ tasks: [] }`
   // (server/internal/handler/daemon.go:1866) so the response object survives

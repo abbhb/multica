@@ -79,9 +79,8 @@ func TestResolveAvatarURL_CloudFrontSignedRewrites(t *testing.T) {
 	}
 }
 
-// TestResolveAvatarURL_LocalStorageUnchanged — LocalStorage objects are served
-// by the public /uploads/* route, so they are already loadable as-is.
-func TestResolveAvatarURL_LocalStorageUnchanged(t *testing.T) {
+// Local avatars use the signed, publishability-checked endpoint.
+func TestResolveAvatarURL_LocalStorageSigned(t *testing.T) {
 	local := storage.NewLocalStorageFromEnv()
 	if local == nil {
 		t.Skip("local storage unavailable")
@@ -89,8 +88,8 @@ func TestResolveAvatarURL_LocalStorageUnchanged(t *testing.T) {
 	withAvatarStorage(t, local, "")
 
 	raw := local.ObjectURL(testAvatarKey)
-	if got := testHandler.resolveAvatarURL(raw); got != raw {
-		t.Fatalf("resolveAvatarURL = %q, want unchanged %q", got, raw)
+	if got := testHandler.resolveAvatarURL(raw); !strings.HasPrefix(got, avatarURLPathPrefix) {
+		t.Fatalf("resolveAvatarURL = %q, want signed avatar URL", got)
 	}
 }
 
@@ -584,5 +583,23 @@ func TestAvatarKeyIsPublishable_OperatorNamespace(t *testing.T) {
 		if w := serveAvatarRequest(t, signAvatarKey(key), key); w.Code != http.StatusFound {
 			t.Errorf("serve %q: status = %d, want 302", key, w.Code)
 		}
+	}
+}
+
+func TestAcceptAvatarURL_LocalUploadOwnerRequired(t *testing.T) {
+	t.Setenv("LOCAL_UPLOAD_DIR", t.TempDir())
+	local := storage.NewLocalStorageFromEnv()
+	withAvatarStorage(t, local, "")
+	own := local.ObjectURL("users/" + testUserID + "/avatar.png")
+	if _, status := acceptAvatarURL(t, own, ""); status != http.StatusOK {
+		t.Fatalf("own avatar: got %d", status)
+	}
+	other := local.ObjectURL("users/" + uuid.NewString() + "/avatar.png")
+	if _, status := acceptAvatarURL(t, other, ""); status != http.StatusForbidden {
+		t.Fatalf("other avatar: got %d", status)
+	}
+	traversal := local.ObjectURL("users/" + testUserID + "/../../users/other/avatar.png")
+	if _, status := acceptAvatarURL(t, traversal, ""); status != http.StatusForbidden {
+		t.Fatalf("traversal: got %d", status)
 	}
 }

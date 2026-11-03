@@ -313,7 +313,7 @@ describe("Attachment — image dispatch", () => {
     );
   });
 
-  it("prefers a local disk /uploads URL over API markdown in split-origin self-host", () => {
+  it("prefers a local disk /uploads URL over API markdown in split-origin self-host", async () => {
     getBaseUrlMock.mockReturnValue("https://api.example.test");
     const id = "11111111-2222-3333-4444-555555555555";
     const markdownUrl = `https://api.example.test/api/attachments/${id}/download`;
@@ -325,6 +325,7 @@ describe("Attachment — image dispatch", () => {
       download_url: `/api/attachments/${id}/download`,
     });
     resolverState.attachments = [att];
+    getAttachmentMock.mockResolvedValue(makeRecord({ id, download_url: `${mediaUrl}?Signature=fresh` }));
 
     renderWithQuery(
       <Attachment
@@ -337,17 +338,17 @@ describe("Attachment — image dispatch", () => {
       />,
     );
 
-    expect(document.querySelector("img")?.getAttribute("src")).toBe(mediaUrl);
+    await waitFor(() => expect(document.querySelector("img")?.getAttribute("src")).toBe(`${mediaUrl}?Signature=fresh`));
 
     fireEvent.click(screen.getByRole("button", { name: "View" }));
 
-    const imageSrcs = [...document.querySelectorAll("img")].map((img) =>
-      img.getAttribute("src"),
-    );
-    expect(imageSrcs).toEqual([mediaUrl, mediaUrl]);
+    await waitFor(() => {
+      const imageSrcs = [...document.querySelectorAll("img")].map((img) => img.getAttribute("src"));
+      expect(imageSrcs).toEqual([`${mediaUrl}?Signature=fresh`, `${mediaUrl}?Signature=fresh`]);
+    });
   });
 
-  it("opens preview with the same resolved media URL when a reopened draft record has no download_url", () => {
+  it("opens preview with the same resolved media URL when a reopened draft record has no download_url", async () => {
     configStore.setState({ cdnDomain: "cdn.example.test" });
     const id = "11111111-2222-3333-4444-555555555555";
     const markdownUrl = `https://multica-api.copilothub.ai/api/attachments/${id}/download`;
@@ -359,6 +360,7 @@ describe("Attachment — image dispatch", () => {
       download_url: "",
     });
     resolverState.attachments = [att];
+    getAttachmentMock.mockResolvedValue(makeRecord({ id, download_url: `${mediaUrl}?Signature=fresh` }));
 
     renderWithQuery(
       <Attachment
@@ -371,13 +373,13 @@ describe("Attachment — image dispatch", () => {
       />,
     );
 
+    await waitFor(() => expect(document.querySelector("img")?.getAttribute("src")).toBe(`${mediaUrl}?Signature=fresh`));
     fireEvent.click(screen.getByRole("button", { name: "View" }));
 
-    const imageSrcs = [...document.querySelectorAll("img")].map((img) =>
-      img.getAttribute("src"),
-    );
-    expect(imageSrcs).toEqual([mediaUrl, mediaUrl]);
-    expect(imageSrcs).not.toContain("");
+    await waitFor(() => {
+      const imageSrcs = [...document.querySelectorAll("img")].map((img) => img.getAttribute("src"));
+      expect(imageSrcs).toEqual([`${mediaUrl}?Signature=fresh`, `${mediaUrl}?Signature=fresh`]);
+    });
   });
 
   it("does not pick the raw CDN url when the server reports cdn_signed (MUL-3254)", () => {
@@ -486,6 +488,18 @@ describe("Attachment — image dispatch", () => {
     await waitFor(() => {
       expect(document.querySelector("img")?.getAttribute("src")).toBe(signed);
     });
+    expect(getAttachmentMock).toHaveBeenCalledWith(id);
+  });
+
+  it("re-signs legacy local upload links on token-mode clients", async () => {
+    getBaseUrlMock.mockReturnValue("https://multica-api.example.test");
+    const id = "11111111-2222-3333-4444-555555555555";
+    const raw = "/uploads/workspaces/ws/shot.png";
+    const signed = `/api/attachments/${id}/signed-download?exp=9999999999&sig=fresh`;
+    resolverState.attachments = [makeRecord({ id, url: raw, download_url: "" })];
+    getAttachmentMock.mockResolvedValue(makeRecord({ id, download_url: signed }));
+    renderWithQuery(<Attachment attachment={{ kind: "url", url: raw, filename: "shot.png", forceKind: "image" }} />);
+    await waitFor(() => expect(document.querySelector("img")?.getAttribute("src")).toBe(`https://multica-api.example.test${signed}`));
     expect(getAttachmentMock).toHaveBeenCalledWith(id);
   });
 

@@ -42,6 +42,8 @@ import { Linking, View } from "react-native";
 import { router } from "expo-router";
 import { EnrichedMarkdownText } from "react-native-enriched-markdown";
 import type { Attachment } from "@multica/core/types";
+import { attachmentMedia } from "@/lib/attachment-media";
+import { openAttachment } from "@/data/queries/attachments";
 import { useWorkspaceStore } from "@/data/workspace-store";
 import { preprocessMobileMarkdown } from "./preprocess";
 import { useMarkdownStyle } from "./markdown-style";
@@ -163,6 +165,11 @@ export function Markdown({
         }
         return;
       }
+      const media = attachmentMedia(url, attachments);
+      if (media.attachmentId) {
+        void openAttachment(media.attachmentId, Linking.openURL).catch(() => { /* A failed refresh must not open a stale capability. */ });
+        return;
+      }
       // Everything else — http(s), mailto, tel, app-scheme deep links —
       // hand off to the system. Linking.openURL throws if no app handles
       // the URL; the catch keeps a stray tap from crashing the screen.
@@ -170,7 +177,7 @@ export function Markdown({
         // Silent: failing loudly is worse than a no-op tap.
       });
     },
-    [wsSlug],
+    [wsSlug, attachments],
   );
 
   if (segments.length === 0) return null;

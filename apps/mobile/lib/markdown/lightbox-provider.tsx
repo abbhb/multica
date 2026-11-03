@@ -24,6 +24,17 @@
 import { createContext, use, useMemo, useState, type ReactNode } from "react";
 import { View } from "react-native";
 import ImageView from "react-native-image-viewing";
+import { useQueries } from "@tanstack/react-query";
+import { currentSessionEpoch } from "@/data/session-epoch";
+import { useAuthStore } from "@/data/auth-store";
+import { useWorkspaceStore } from "@/data/workspace-store";
+import { attachmentCapabilityOptions } from "@/data/queries/attachments";
+import {
+  attachmentMediaURL,
+  attachmentMediaSequence,
+  type AttachmentMedia,
+} from "@/lib/attachment-media";
+import { useCapabilityClock } from "@/lib/use-capability-clock";
 import { Text } from "@/components/ui/text";
 
 interface LightboxApi {
@@ -32,7 +43,10 @@ interface LightboxApi {
    * its real position and the reader can swipe through the rest; otherwise
    * the viewer shows that one image.
    */
-  open: (uri: string, sequence?: readonly string[]) => void;
+  open: (
+    source: string | AttachmentMedia,
+    sequence?: readonly AttachmentMedia[],
+  ) => void;
 }
 
 const LightboxContext = createContext<LightboxApi>({
@@ -47,7 +61,8 @@ export function useLightbox(): LightboxApi {
 }
 
 interface Viewing {
-  images: { uri: string }[];
+  sessionEpoch: number;
+  images: AttachmentMedia[];
   index: number;
 }
 
@@ -59,19 +74,34 @@ export function LightboxProvider({ children }: { children: ReactNode }) {
 
   const api = useMemo<LightboxApi>(
     () => ({
-      open: (uri, sequence) => {
-        const uris = sequence?.length ? [...sequence] : [uri];
-        const found = uris.indexOf(uri);
-        // A URI the sequence doesn't know still opens, on its own — same
-        // fallback web takes when `openAt` reports the key is unknown.
-        const images = found >= 0 ? uris : [uri];
-        const index = found >= 0 ? found : 0;
+      open: (source, sequence) => {
+        const media = typeof source === "string" ? { uri: source } : source;
+        const { images, index } = attachmentMediaSequence(media, sequence);
         setCurrentIndex(index);
-        setViewing({ images: images.map((u) => ({ uri: u })), index });
+        setViewing({ images, index, sessionEpoch: currentSessionEpoch() });
       },
     }),
     [],
   );
+
+  const wsId = useWorkspaceStore((s) => s.currentWorkspaceId);
+  const userId = useAuthStore((s) => s.user?.id ?? null);
+  const viewingActive = !!viewing && viewing.sessionEpoch === currentSessionEpoch();
+  const sources = viewingActive ? viewing.images : [];
+  const attachmentIds = [...new Set(sources.slice(Math.max(0, currentIndex - 1), currentIndex + 2).flatMap(
+    (source) => source.attachmentId ? [source.attachmentId] : [],
+  ))];
+  const capabilities = useQueries({
+    queries: attachmentIds.map((id) => attachmentCapabilityOptions(wsId, id, userId)),
+  });
+  const now = useCapabilityClock(capabilities.map((query) => query.data));
+  const images = sources.map((source) => {
+    const capability = capabilities[attachmentIds.indexOf(source.attachmentId ?? "")];
+    return {
+      uri: attachmentMediaURL(source, capability?.isError ? undefined : capability?.data, now) ?? "",
+      ...(source.attachmentId ? { cache: "reload" as const } : {}),
+    };
+  });
 
   const total = viewing?.images.length ?? 0;
   // Only a sequence gets a counter — a lone image has nothing to count.
@@ -95,9 +125,10 @@ export function LightboxProvider({ children }: { children: ReactNode }) {
     <LightboxContext.Provider value={api}>
       {children}
       <ImageView
-        images={viewing?.images ?? []}
+        images={images}
+        keyExtractor={(_image, index) => `${sources[index]?.attachmentId ?? sources[index]?.uri ?? "image"}:${index}`}
         imageIndex={viewing?.index ?? 0}
-        visible={!!viewing}
+        visible={viewingActive}
         onRequestClose={() => setViewing(null)}
         onImageIndexChange={setCurrentIndex}
         FooterComponent={Footer}

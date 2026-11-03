@@ -14,24 +14,24 @@
  * are counted the same way on every client (mobile parity rule: mirror the
  * shared logic, own the UI).
  *
- * The URIs are resolved the same way `MarkdownImage` resolves the one it
- * renders — same attachment match, same `resolveAttachmentUrl` pass — so the
- * URI a tap reports is the one the sequence holds.
+ * Stable attachment identities are preserved here. Native previews fetch
+ * credential-free capabilities separately; expiring signatures never change
+ * a clicked image's sequence position.
  */
 import { createContext, use, useMemo, type ReactNode } from "react";
 import {
   collectImageSequence,
   type ImageSequenceBlock,
 } from "@multica/core/attachments/image-sequence";
-import { resolveAttachmentUrl } from "@/lib/attachment-url";
+import { attachmentMedia, type AttachmentMedia } from "@/lib/attachment-media";
 
-const ImageSequenceContext = createContext<readonly string[]>([]);
+const ImageSequenceContext = createContext<readonly AttachmentMedia[]>([]);
 
 /**
- * Resolved image URIs for the surrounding screen, in render order. Empty when
+ * Stable image sources for the surrounding screen, in render order. Empty when
  * no provider is mounted — the lightbox then shows the tapped image alone.
  */
-export function useImageSequence(): readonly string[] {
+export function useImageSequence(): readonly AttachmentMedia[] {
   return use(ImageSequenceContext);
 }
 
@@ -45,7 +45,7 @@ export function ImageSequenceProvider({
   const uris = useMemo(
     () =>
       collectImageSequence(blocks).map(
-        (item) => resolveAttachmentUrl(item.url) ?? item.url,
+        (item) => attachmentMedia(item.url, item.attachment ? [item.attachment] : undefined),
       ),
     [blocks],
   );

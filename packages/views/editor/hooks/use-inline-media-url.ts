@@ -13,10 +13,10 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@multica/core/api";
 import { attachmentIdFromDownloadURL } from "@multica/core/types/attachment-url";
+import { resolvePublicFileUrl } from "@multica/core/workspace/avatar-url";
 
-// Keep refetches well inside the server's signed-URL TTL (30 min default,
-// server/internal/handler/file.go) so a re-render never serves an expired
-// signature from the query cache.
+// Keep inactive query entries bounded. Proxy capabilities are re-fetched on
+// a shorter cadence below because they expire after 60 seconds.
 const RESIGN_STALE_MS = 20 * 60 * 1000;
 
 // How long fetched image bytes stay in the query cache after the last <img>
@@ -99,23 +99,24 @@ export function useResignedInlineMedia(
   const needsResign =
     !!resignAttachmentId &&
     !!pickedUrl &&
-    idFromPickedUrl !== undefined &&
+    (idFromPickedUrl !== undefined || /(?:^|\/)uploads\//.test(pickedUrl)) &&
     ((api.getBaseUrl?.() ?? "") !== "" || isCrossOriginWebURL);
 
   const { data: fresh, isError: freshFailed } = useQuery({
     queryKey: ["attachment-inline-resign", resignAttachmentId],
     queryFn: () => api.getAttachment(resignAttachmentId as string),
     enabled: needsResign,
-    staleTime: RESIGN_STALE_MS,
+    staleTime: 30_000,
     gcTime: RESIGN_STALE_MS,
+    refetchInterval: (query) => query.state.data?.download_url?.includes("/signed-download?") ? 30_000 : false,
   });
 
   const dl = fresh?.download_url ?? "";
-  // Accept the fresh URL only when it is an actual upgrade — absolute and no
-  // longer the auth-gated API shape (i.e. a signed storage URL the renderer
-  // can load natively).
-  const signedUrl =
-    /^https?:\/\//i.test(dl) && attachmentIdFromDownloadURL(dl) === undefined
+  // Accept signed storage URLs and the API’s short-lived proxy capability.
+  const capabilityPrefix = `/api/attachments/${resignAttachmentId}/signed-download?`;
+  const signedUrl = dl.startsWith(capabilityPrefix)
+    ? (resolvePublicFileUrl(dl) ?? "")
+    : /^https?:\/\//i.test(dl) && attachmentIdFromDownloadURL(dl) === undefined
       ? dl
       : "";
 
