@@ -925,6 +925,7 @@ function BoardViewImpl({
           <div style={{ width: BOARD_CARD_WIDTH }} className="rotate-1 cursor-grabbing opacity-90 shadow-lg shadow-black/10">
             <BoardCardContent
               issue={activeIssue}
+              parentIssue={activeIssue.parent_issue_id ? issueMapRef.current.get(activeIssue.parent_issue_id) : undefined}
               childProgress={childProgressMap.get(activeIssue.id)}
               project={
                 activeIssue.project_id

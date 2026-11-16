@@ -1052,6 +1052,8 @@
     }
   },
   "card": {
+    "sub_issue": "Sous-tâche",
+    "parent_unavailable": "Tâche parente indisponible",
     "update_failed": "Échec de la mise à jour de la tâche",
     "updated_ago": "Mis à jour {{time}}"
   },

@@ -998,6 +998,8 @@
     }
   },
   "card": {
+    "sub_issue": "子任務",
+    "parent_unavailable": "父任務暫時無法使用",
     "update_failed": "更新任務失敗",
     "updated_ago": "更新於 {{time}}"
   },

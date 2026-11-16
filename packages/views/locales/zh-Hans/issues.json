@@ -998,6 +998,8 @@
     }
   },
   "card": {
+    "sub_issue": "子任务",
+    "parent_unavailable": "父任务暂不可用",
     "update_failed": "更新任务失败",
     "updated_ago": "更新于 {{time}}"
   },

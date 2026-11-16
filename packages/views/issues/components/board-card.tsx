@@ -14,7 +14,7 @@ import { propertyListOptions } from "@multica/core/properties";
 import { CustomPropertyValueDisplay } from "./pickers/custom-property-picker";
 import { descriptionPreview } from "./description-preview";
 import { formatDateOnly, isPastDateOnly } from "@multica/core/issues/date";
-import { CalendarClock, CalendarDays } from "@multica/ui/icons";
+import { CalendarClock, CalendarDays, CornerDownRight } from "@multica/ui/icons";
 import { ActorAvatar } from "../../common/actor-avatar";
 import { CardControl } from "../../common/card-control";
 import { PropertyIcon } from "../../common/property-icon";
@@ -34,6 +34,7 @@ import { LabelChip } from "../../labels/label-chip";
 import { IssueAgentActivityIndicator } from "./issue-agent-activity-indicator";
 import { CustomStatusChip, useIsCustomStatus } from "./custom-status-chip";
 import { IssueDuplicateOfMarker } from "./issue-duplicates";
+import { BoardParentIssue } from "./board-parent-issue";
 import { IssuePullRequestChips, useIssuePullRequestSummaries } from "./pull-request-chips";
 import { useIssueSurfaceActionsOptional } from "../surface/actions-context";
 import {
@@ -51,11 +52,13 @@ export const BoardCardContent = memo(function BoardCardContent({
   editable = false,
   childProgress,
   project,
+  parentIssue,
 }: {
   issue: Issue;
   editable?: boolean;
   childProgress?: ChildProgress;
   project?: Project;
+  parentIssue?: Issue;
 }) {
   const { t } = useT("issues");
   const locale = useLocale();
@@ -63,6 +66,7 @@ export const BoardCardContent = memo(function BoardCardContent({
   const storeProperties = useViewStore((s) => s.cardProperties);
   const cardPropertyIds = useViewStore((s) => s.cardPropertyIds);
   const viewMode = useViewStore((s) => s.viewMode);
+  const showParent = viewMode === "board" && !!issue.parent_issue_id;
   const grouping = useViewStore((s) => s.grouping);
   const swimlaneGrouping = useViewStore((s) => s.swimlaneGrouping);
   const cardGrouping =
@@ -212,6 +216,12 @@ export const BoardCardContent = memo(function BoardCardContent({
         <div className="flex items-center gap-1.5 min-w-0">
           {priorityIconNode}
           <p className="text-caption text-muted-foreground truncate">{issue.identifier}</p>
+          {showParent && (
+            <span className="inline-flex shrink-0 items-center gap-0.5 rounded-xs bg-brand/10 px-1 py-0.5 text-micro font-medium text-brand">
+              <CornerDownRight aria-hidden="true" className="size-3" />
+              {t(($) => $.card.sub_issue)}
+            </span>
+          )}
           <IssueDuplicateOfMarker issue={issue} insideLink />
         </div>
         <IssueAgentActivityIndicator issueId={issue.id} />
@@ -221,6 +231,8 @@ export const BoardCardContent = memo(function BoardCardContent({
       <p className="mt-1 text-body font-medium leading-snug cjk:leading-normal line-clamp-2">
         {issue.title}
       </p>
+
+      {showParent && <BoardParentIssue parentId={issue.parent_issue_id!} parentIssue={parentIssue} />}
 
       {showDescription && (() => {
         const preview = descriptionPreview(issue.description!);
@@ -365,11 +377,13 @@ export const DraggableBoardCard = memo(function DraggableBoardCard({
   childProgress,
   project,
   disableSorting,
+  parentIssue,
 }: {
   issue: Issue;
   childProgress?: ChildProgress;
   project?: Project;
   disableSorting?: boolean;
+  parentIssue?: Issue;
 }) {
   const p = useWorkspacePaths();
   const peek = useIssuePeekActions();
@@ -430,6 +444,7 @@ export const DraggableBoardCard = memo(function DraggableBoardCard({
             editable
             childProgress={childProgress}
             project={project}
+            parentIssue={parentIssue}
           />
         </AppLink>
       </div>

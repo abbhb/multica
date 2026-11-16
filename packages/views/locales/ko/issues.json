@@ -998,6 +998,8 @@
     }
   },
   "card": {
+    "sub_issue": "하위 태스크",
+    "parent_unavailable": "상위 태스크를 표시할 수 없습니다",
     "update_failed": "태스크를 업데이트하지 못했습니다",
     "updated_ago": "{{time}} 수정됨"
   },
