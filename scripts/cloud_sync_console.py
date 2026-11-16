@@ -136,6 +136,26 @@ def schema_notice(report):
     return f'<aside class="notice coverage" role="note"><strong>核对范围受限</strong><p>{scope}</p><details><summary>{counts}</summary><ul>{"".join(details)}</ul><p>每类最多显示 40 项，完整列表见下载明细。</p></details></aside>'
 
 
+def file_notice(files, attachments):
+    if not files:
+        return ""
+    missing = {json.loads(key)[0] for key in attachments.get("missing", [])}
+    extra = {json.loads(key)[0] for key in attachments.get("extra", [])}
+    different = set(files["mismatches"])
+    groups = (
+        ("官方独有文件（未导入）", different & missing),
+        ("本地独有文件（保留）", different & extra),
+        ("文件哈希不同（人工核对）", different - missing - extra),
+    )
+    details = []
+    for title, keys in groups:
+        if keys:
+            items = "".join(f"<li><code>{h(key)}</code></li>" for key in sorted(keys)[:40])
+            limit = "<p>最多显示 40 项，完整列表见下载明细。</p>" if len(keys) > 40 else ""
+            details.append(f"<details><summary>{title} {len(keys)}</summary><ul>{items}</ul>{limit}</details>")
+    return f"<p>文件校验 {files['matched']} / {files['expected']} · SHA-256</p>" + "".join(details)
+
+
 def render_page(cfg, jobs, run_id, token):
     history = jobs.history()
     selected = jobs.get(run_id or history[0]["id"]) if history else None
@@ -197,9 +217,6 @@ def render_page(cfg, jobs, run_id, token):
     for message in report.get("snapshot_blockers", []):
         alerts.append(h(message))
     files = report.get("files")
-    if files:
-        for ident in files["mismatches"]:
-            alerts.append("文件差异 " + h(ident))
     history_html = "".join(
         f'<li><a href="?run={h(j["id"])}"><span>{MODES[j["mode"]]}</span>{date_tag(j["created"])}<b>{STATES[j["state"]]}</b></a></li>'
         for j in history
@@ -213,11 +230,7 @@ def render_page(cfg, jobs, run_id, token):
         if delta
         else ""
     )
-    binary_html = (
-        f"<p>文件校验 {files['matched']} / {files['expected']} · SHA-256</p>"
-        if files
-        else ""
-    )
+    binary_html = file_notice(files, tables.get("attachment", {}))
     download = (
         f'<a href="{path}/report?run={h(selected["id"])}" download="reconciliation.json">下载完整明细</a>'
         if report

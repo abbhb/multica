@@ -187,6 +187,26 @@ class ConsoleTests(unittest.TestCase):
         self.assertIn("新增字段不在本次核对范围", html)
         self.assertIn("issue.new_field", html)
 
+    def test_file_results_distinguish_local_work_from_missing_and_changed_files(self):
+        run = self.jobs.enqueue("compare", "owner")
+        self.jobs.finish(run, "partial", {
+            "written": 0, "difference_count": 3,
+            "files": {"matched": 1, "expected": 3, "actual": 3,
+                      "mismatches": ["cloud-only", "local-only", "shared-changed"]},
+            "tables": {"attachment": {
+                "expected": 3, "actual": 3, "missing": ['["cloud-only"]'],
+                "extra": ['["local-only"]'], "changed": [],
+            }},
+        })
+        status, _, html = self.request("GET", self.path + "?run=" + run, "owner")
+        self.assertEqual(status, 200)
+        self.assertIn("文件校验 1 / 3", html)
+        for label, key in (("官方独有文件（未导入）", "cloud-only"),
+                           ("本地独有文件（保留）", "local-only"),
+                           ("文件哈希不同（人工核对）", "shared-changed")):
+            self.assertIn(f"<summary>{label} 1</summary><ul><li><code>{key}</code>", html)
+        self.assertNotIn("文件差异 ", html)
+
     def test_concurrent_clicks_create_one_run_and_restart_marks_interruption(self):
         with ThreadPoolExecutor(max_workers=6) as pool:
             ids = list(
