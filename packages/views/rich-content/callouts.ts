@@ -8,6 +8,12 @@ export function isCalloutKind(value: unknown): value is CalloutKind {
   return CALLOUT_KINDS.some((kind) => kind === value);
 }
 
+export function parseCalloutMarker(text: string): { kind: CalloutKind; length: number } | null {
+  const marker = /^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\](?:[\t ]*\n|[\t ]*$)/i.exec(text);
+  const kind = marker?.[1]?.toLowerCase();
+  return marker && isCalloutKind(kind) ? { kind, length: marker[0].length } : null;
+}
+
 /** Runs after sanitization; only parsed blockquotes can become callouts. */
 export function rehypeCallouts() {
   return (tree: Root) => {
@@ -17,12 +23,11 @@ export function rehypeCallouts() {
       if (paragraph?.type !== "element" || paragraph.tagName !== "p") return;
       const first = paragraph.children[0];
       if (first?.type !== "text") return;
-      const marker = /^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\](?:[\t ]*\n|[\t ]*$)/i.exec(first.value);
+      const marker = parseCalloutMarker(first.value);
       if (!marker) return;
-      const kind = marker[1]?.toLowerCase();
-      if (!isCalloutKind(kind)) return;
+      const { kind } = marker;
 
-      first.value = first.value.slice(marker[0].length);
+      first.value = first.value.slice(marker.length);
       if (!first.value) {
         paragraph.children.shift();
         // remark-breaks emits a <br> between the marker and its body.

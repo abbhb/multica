@@ -48,6 +48,7 @@ import { createSlashCommandSuggestion, createBuiltinCommandSuggestion } from "./
 import type { BuiltinCommandSuggestionOptions } from "./slash-command-suggestion";
 import { SuggestionTriggerArmingExtension } from "./suggestion-trigger-arming";
 import { CodeBlockView } from "./code-block-view";
+import { CalloutBlockquote } from "./callout-blockquote";
 import { TableView } from "./table-view";
 import { RICH_TABLE_CHROME_ATTRIBUTE } from "../../rich-content/rich-table";
 import { PatchedListItem, PatchedTaskItem } from "./list-item";
@@ -211,6 +212,7 @@ export function createEditorExtensions(
       heading: { levels: [1, 2, 3, 4, 5, 6] },
       link: false,
       codeBlock: false,
+      blockquote: false,
       // Underline has no Markdown representation. Tiptap's extension serializes
       // the mark as `++text++`, which is not CommonMark or GFM, so ReadonlyContent
       // (react-markdown + remark-gfm) renders the delimiters literally. Disabling
@@ -224,6 +226,7 @@ export function createEditorExtensions(
       // standard split → lift fallback chain.
       listItem: false,
     }),
+    CalloutBlockquote,
     PatchedListItem,
     // Checkbox task lists: `- [ ]` / `- [x]`. TaskList + TaskItem ship their own
     // markdown tokenizer / renderMarkdown, an input rule (typing `[] ` / `[x] `),
