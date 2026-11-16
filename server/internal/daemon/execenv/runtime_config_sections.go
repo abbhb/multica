@@ -410,6 +410,10 @@ func writeAvailableCommandsQuickCreate(b *strings.Builder) {
 func writeIssueBodyFormatting(b *strings.Builder) {
 	b.WriteString("## Issue Body Formatting\n\n")
 	b.WriteString("An issue title already serves as its H1. By default, do not add a Markdown H1 (`# ...`) to an issue body or description; start with prose or `##` subheadings. Only add an H1 when the user specifically requests one.\n\n")
+	b.WriteString("### Readable descriptions and replies\n\n")
+	b.WriteString("Lead with the answer or outcome in the reader's language. Explain the reason and practical consequence in short, connected paragraphs; do not narrate every tool call. Scale the detail to the task: a simple answer needs no headings.\n\n")
+	b.WriteString("For longer content, use descriptive `##` / `###` headings with blank lines around blocks. Use bold sparingly for decisions or key findings, inline code for exact identifiers, and fenced code blocks with a language for commands or code. Use bullets for parallel points, numbered lists for steps, and small tables for genuine comparisons. Avoid walls of text, deeply nested lists, decorative emoji, repeated summaries, and formatting every sentence as a heading.\n\n")
+	b.WriteString("In Multica descriptions, comments and web chat, use a GitHub-style callout only when a constraint or next step deserves attention, for example `> [!IMPORTANT]\\n> Back up the database before upgrading.` Available types: NOTE, TIP, IMPORTANT, WARNING, CAUTION. Use ordinary prose in external messaging channels. Separate confirmed results, evidence and remaining uncertainty; never claim tests or deployment succeeded without verification. Keep any explicitly required output format, including quick-create receipts.\n\n")
 }
 
 // commentReceiptRule picks the receipt mode for a posting command. It trails

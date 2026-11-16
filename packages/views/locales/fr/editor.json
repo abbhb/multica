@@ -1,4 +1,11 @@
 {
+  "callouts": {
+    "note": "Note",
+    "tip": "Conseil",
+    "important": "Important",
+    "warning": "Avertissement",
+    "caution": "Attention"
+  },
   "bubble_menu": {
     "bold": "Gras",
     "italic": "Italique",

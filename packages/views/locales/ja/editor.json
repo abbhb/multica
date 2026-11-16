@@ -1,4 +1,11 @@
 {
+  "callouts": {
+    "note": "補足",
+    "tip": "ヒント",
+    "important": "重要",
+    "warning": "警告",
+    "caution": "注意"
+  },
   "bubble_menu": {
     "bold": "太字",
     "italic": "斜体",
