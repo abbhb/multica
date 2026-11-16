@@ -452,7 +452,7 @@ jobs:
           if ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --generate-notes
           fi
-          gh release upload "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --clobber apps/desktop/dist/mac-*/*.dmg apps/desktop/dist/mac-*/*.zip apps/desktop/dist/mac-*/*.yml apps/desktop/dist/mac-*/*.blockmap desktop-downloads/SHA256SUMS
+          gh release upload "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --clobber apps/desktop/dist/mac-*/*.dmg apps/desktop/dist/mac-*/*.zip apps/desktop/dist/mac-*/latest*.yml apps/desktop/dist/mac-*/*.blockmap desktop-downloads/SHA256SUMS
       - name: Upload image download bundle
         uses: actions/upload-artifact@v4
         with:
