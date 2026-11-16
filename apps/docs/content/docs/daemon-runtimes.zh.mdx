@@ -179,6 +179,10 @@ Multica 每次运行都会刷新其中的 skill 和派生配置。模型服务�
 
 Codex 原生子智能体同样默认关闭：父线程结束时，Multica 就把这次运行判为结束，仍在执行的子智能体的结果会丢失。接受这个风险的话，设置 `MULTICA_CODEX_MULTI_AGENT=1`。
 
+### Codex 项目指令 [#codex-instructions]
+
+在由 daemon 管理的 Codex 执行中，任务专用的 `CODEX_HOME/config.toml` 将 `project_doc_max_bytes` 设为至少 128 KiB，已有的更大值会保留。这为 `AGENTS.md` 中的仓库规则和后接的 Multica 运行提示留出空间，避免较长规则占满原生 32 KiB 默认额度后截断运行提示。共享的 Codex 配置不会修改；读取更多指令可能增加输入 Token 用量。
+
 ## 运行时共享 [#私有与公开]
 
 本地运行时默认是**私有**的：只有运行时所有者可以在它上面创建智能体，工作区的 owner、admin 也不例外。运行时是别人的电脑，在上面跑智能体，用的是对方的机器和工具凭据。

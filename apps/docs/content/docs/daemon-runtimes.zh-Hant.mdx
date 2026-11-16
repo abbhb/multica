@@ -179,6 +179,10 @@ Multica 每次執行都會重新整理其中的 skill 和派生配置。模型�
 
 Codex 原生子 AI 代理同樣預設關閉：父執行緒結束時，Multica 就把這次執行判為結束，仍在執行的子 AI 代理的結果會丟失。接受這個風險的話，設定 `MULTICA_CODEX_MULTI_AGENT=1`。
 
+### Codex 專案指令 [#codex-instructions]
+
+在由 daemon 管理的 Codex 執行中，任務專用的 `CODEX_HOME/config.toml` 將 `project_doc_max_bytes` 設為至少 128 KiB，已有的較大值會保留。這為 `AGENTS.md` 中的儲存庫規則和後接的 Multica 執行提示留出空間，避免較長規則占滿原生 32 KiB 預設額度後截斷執行提示。共用的 Codex 設定不會修改；讀取更多指令可能增加輸入 Token 用量。
+
 ## 執行時共享 [#私有與公開]
 
 本地執行時預設是**私有**的：只有執行時所有者可以在它上面建立 AI 代理，工作區的 owner、admin 也不例外。執行時是別人的電腦，在上面跑 AI 代理，用的是對方的機器和工具憑據。

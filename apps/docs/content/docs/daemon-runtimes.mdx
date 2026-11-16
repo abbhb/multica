@@ -178,6 +178,10 @@ Daemon-managed Codex runs have Codex native memory turned off by default, so mem
 
 Codex native subagents are off by default as well: Multica treats the run as finished when the parent thread finishes, and results from subagents still working are lost. If you accept that risk, set `MULTICA_CODEX_MULTI_AGENT=1`.
 
+### Codex project instructions [#codex-instructions]
+
+For daemon-managed Codex runs, the task-local `CODEX_HOME/config.toml` sets `project_doc_max_bytes` to at least 128 KiB, preserving a larger configured value. This leaves room for repository instructions and the Multica runtime brief that follows them in `AGENTS.md`; the native 32 KiB default can cut off that brief in repositories with long rules. Your shared Codex configuration is unchanged. Reading more instructions can increase input token usage.
+
 ## Runtime sharing [#private-and-public-runtimes]
 
 A local runtime is **private** by default: only the runtime owner can create agents on it, and workspace owners and admins are no exception. The runtime is someone else's computer, and running an agent there uses their machine and their tool credentials.
