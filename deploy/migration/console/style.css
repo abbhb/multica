@@ -88,6 +88,27 @@ form,
 .card {
   padding: 20px;
 }
+.notice {
+  margin-top: 20px;
+  padding: 14px 18px;
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  background: var(--soft);
+  overflow-wrap: anywhere;
+}
+.notice > p,
+.notice details {
+  margin-top: 6px;
+}
+.notice ul {
+  max-height: 280px;
+  overflow-y: auto;
+  padding-left: 22px;
+}
+.empty {
+  margin-top: 10px;
+  color: var(--muted);
+}
 .grid {
   overflow-x: auto;
   margin-top: 10px;
@@ -128,6 +149,7 @@ summary:focus-visible {
 }
 .partial,
 .failed,
+.blocked,
 .alerts {
   color: #8a360b;
   background: #fff1df;

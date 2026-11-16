@@ -4,7 +4,7 @@ services:
   postgres:
     image: ${SYNC_POSTGRES_IMAGE:?Set an immutable PostgreSQL image reference}
     pull_policy: never
-    mem_limit: 256m
+    mem_limit: 384m
     cpus: 0.50
     command: [postgres, -c, shared_buffers=64MB, -c, work_mem=4MB, -c, max_connections=40]
     logging: &logging

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run operator-requested, one-way incremental imports on a dedicated rehearsal host."""
+"""Compare Cloud and self-hosted data; imports require an offline rehearsal opt-in."""
 
 import argparse
 import fcntl
@@ -21,6 +21,7 @@ from urllib.request import Request
 from cloud_sync import API, SyncError, digest, download_assets, save
 from cloud_sync_import import make_plan, sql_for_plan
 from cloud_sync_jobs import Jobs, now
+from cloud_sync_policy import BlockedRun, READ_ONLY_NOTICE, schema_difference, sync_enabled
 from cloud_sync_reconcile import reconcile
 
 INITIAL = str(uuid.UUID(int=0))
@@ -125,15 +126,16 @@ class Target:
             raise SyncError("目标数据库操作失败，详情见执行器私有日志")
         return result.stdout
 
-    def schema(self, reference):
+    def schema(self, reference, *, read_only=False):
         query = """SELECT json_agg(to_jsonb(c) ORDER BY table_name,ordinal_position) FROM (
             SELECT table_name,column_name,data_type,udt_name,is_nullable,column_default,ordinal_position
             FROM information_schema.columns WHERE table_schema='public') c;"""
-        live = json.loads(self.sql(query))
-        # Older schema captures selected the same columns but omitted ordinal_position.
-        keys = reference[0].keys()
-        if [{k: r[k] for k in keys} for r in live] != reference:
-            raise SyncError("目标数据库结构发生变化，需重新核验迁移基线")
+        coverage = schema_difference(reference, json.loads(self.sql(query)) or [])
+        # Additive DDL preserves the old read projection, but cannot authorize an
+        # import. Removed or changed columns stop both paths before any capture.
+        if not coverage["matches"] and not (read_only and coverage["projection_compatible"]):
+            raise BlockedRun("目标库结构与迁移基线不同，已停止本次操作；请先核验对账字段，本地数据未被写入。", coverage)
+        return coverage
 
     def baseline(self):
         ws = str(uuid.UUID(self.cfg["workspace_id"]))
@@ -326,14 +328,18 @@ def readback_assets(api, snapshot, directory):
 
 def run_job(cfg, jobs, job, tmp, log):
     run = job["id"]
+    jobs.phase(run, "preflight")
+    if job["mode"] == "sync" and not sync_enabled(cfg):
+        raise BlockedRun(READ_ONLY_NOTICE)
     root, ws = Path(cfg["private_dir"]), cfg["workspace_id"]
     target = Target(cfg)
     target.check_identity()
-    target.schema(read(root / "schema.json"))
+    coverage = target.schema(read(root / "schema.json"), read_only=job["mode"] == "compare")
     old_run = target.baseline()
     src, dst = read(root / "source.json"), read(root / "target.json")
     cloud = API(src["server_url"], src["token"], ws)
     local = API(dst["server_url"], dst["token"], ws)
+    jobs.phase(run, "source")
     snapshot = capture(
         root / "source.json",
         ws,
@@ -376,7 +382,7 @@ def run_job(cfg, jobs, job, tmp, log):
             target.finish_rollup(log)
         except SyncError as exc:
             failure = str(exc)
-    expected_file = root / "baselines" / (run + ".json")
+    expected_file = root / "baselines" / (run + ".json") if job["mode"] == "sync" else tmp / "expected.json"
     if not expected_file.is_file():
         expected_file = tmp / "expected.json"
         save(expected_file, expected)
@@ -405,6 +411,8 @@ def run_job(cfg, jobs, job, tmp, log):
         source_read=read(tmp / "source" / "read-stats.json"),
         delta=stats,
         written=written,
+        schema=coverage,
+        comparison_complete=coverage["matches"] and not report["snapshot_blockers"],
         files={
             "matched": sum(k not in mismatches for k in assets),
             "expected": len(assets),
@@ -417,6 +425,7 @@ def run_job(cfg, jobs, job, tmp, log):
         or report["difference_count"]
         or report["snapshot_blockers"]
         or mismatches
+        or not coverage["matches"]
     )
     jobs.finish(
         run,
@@ -424,6 +433,8 @@ def run_job(cfg, jobs, job, tmp, log):
         report,
         failure,
     )
+    if job["mode"] == "compare":
+        return
     # Retain the active baseline and recent recovery points; snapshots and raw
     # target readbacks are temporary. The queue retains the reconciliation history.
     keep = target.baseline() + ".json"
@@ -449,6 +460,8 @@ def main():
     os.umask(0o077)
     jobs = Jobs(cfg["jobs"])
     if args.initialize:
+        if not sync_enabled(cfg):
+            raise SyncError("只读模式不会初始化或重置迁移基线")
         if not (root / "baselines" / (INITIAL + ".json")).is_file():
             raise SyncError("缺少初始已应用基线")
         target = Target(cfg)
@@ -488,6 +501,8 @@ def main():
                 try:
                     with tempfile.TemporaryDirectory(dir=root) as directory:
                         run_job(cfg, jobs, job, Path(directory), log)
+                except BlockedRun as exc:
+                    jobs.finish(job["id"], "blocked", exc.report, str(exc))
                 except (
                     SyncError,
                     OSError,

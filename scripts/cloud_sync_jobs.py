@@ -63,7 +63,7 @@ class Jobs:
                 if row["mode"] not in ("compare", "sync"):
                     raise ValueError("invalid queued mode")
                 db.execute(
-                    "UPDATE jobs SET state='running',phase='source' WHERE id=?",
+                    "UPDATE jobs SET state='running',phase='preflight' WHERE id=?",
                     (row["id"],),
                 )
                 return dict(row)

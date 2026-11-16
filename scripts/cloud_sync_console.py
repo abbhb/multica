@@ -19,17 +19,20 @@ from urllib.request import Request, build_opener
 
 from cloud_sync import NoRedirect, SyncError
 from cloud_sync_jobs import Jobs
+from cloud_sync_policy import READ_ONLY_NOTICE, sync_enabled
 
 STATES = {
     "queued": "排队中",
     "running": "运行中",
     "success": "一致",
-    "partial": "待处理",
+    "partial": "部分核对",
+    "blocked": "已阻止",
     "failed": "失败",
 }
 MODES = {"baseline": "首次迁移", "compare": "仅对账", "sync": "增量同步"}
 PHASES = {
     "queued": "等待执行",
+    "preflight": "检查核对范围",
     "source": "读取官方 API",
     "assets": "校验源文件",
     "plan": "比对上次基线",
@@ -114,6 +117,45 @@ def date_tag(value):
     return f'<time datetime="{h(value)}">{h(value)}</time>' if value else "—"
 
 
+def schema_notice(report):
+    schema = report.get("schema")
+    if not schema or schema["matches"]:
+        return ""
+    groups = (("added", "新增字段"), ("removed", "缺少字段"), ("changed", "定义变化"))
+    counts = " · ".join(f"{label} {len(schema[key])}" for key, label in groups)
+    details = []
+    for key, label in groups:
+        for item in schema[key][:40]:
+            name = item if isinstance(item, str) else item["column"]
+            details.append(f"<li>{label} <code>{h(name)}</code></li>")
+    scope = (
+        "仅核对迁移基线覆盖的 API 字段；新增字段不在本次核对范围。"
+        if schema["projection_compatible"]
+        else "原有字段已缺少或变更，暂不能按旧基线核对。请先核验字段映射，本地数据未被写入。"
+    )
+    return f'<aside class="notice coverage" role="note"><strong>核对范围受限</strong><p>{scope}</p><details><summary>{counts}</summary><ul>{"".join(details)}</ul><p>每类最多显示 40 项，完整列表见下载明细。</p></details></aside>'
+
+
+def file_notice(files, attachments):
+    if not files:
+        return ""
+    missing = {json.loads(key)[0] for key in attachments.get("missing", [])}
+    extra = {json.loads(key)[0] for key in attachments.get("extra", [])}
+    different = set(files["mismatches"])
+    groups = (
+        ("官方独有文件（未导入）", different & missing),
+        ("本地独有文件（保留）", different & extra),
+        ("文件哈希不同（人工核对）", different - missing - extra),
+    )
+    details = []
+    for title, keys in groups:
+        if keys:
+            items = "".join(f"<li><code>{h(key)}</code></li>" for key in sorted(keys)[:40])
+            limit = "<p>最多显示 40 项，完整列表见下载明细。</p>" if len(keys) > 40 else ""
+            details.append(f"<details><summary>{title} {len(keys)}</summary><ul>{items}</ul>{limit}</details>")
+    return f"<p>文件校验 {files['matched']} / {files['expected']} · SHA-256</p>" + "".join(details)
+
+
 def render_page(cfg, jobs, run_id, token):
     history = jobs.history()
     selected = jobs.get(run_id or history[0]["id"]) if history else None
@@ -123,6 +165,7 @@ def render_page(cfg, jobs, run_id, token):
     slug = cfg["slug"]
     path = f"/{slug}/reconciliation"
     state = selected["state"] if selected else "empty"
+    read_only = not sync_enabled(cfg)
     metrics = [
         ("核对类型", len(tables)),
         ("官方记录", sum(t["expected"] for t in tables.values())),
@@ -145,9 +188,9 @@ def render_page(cfg, jobs, run_id, token):
     ):
         differences = []
         for kind, title in (
-            ("missing", "目标缺少"),
-            ("extra", "目标多出"),
-            ("changed", "字段不同"),
+            ("missing", "官方独有（未导入）"),
+            ("extra", "本地独有（保留）"),
+            ("changed", "字段不同（人工核对）"),
         ):
             for item in v[kind][:40]:
                 text = (
@@ -166,13 +209,14 @@ def render_page(cfg, jobs, run_id, token):
         )
     alerts = []
     if selected and selected["error"]:
-        alerts.append(h(selected["error"]))
+        alerts.append(
+            "此运行在本地结构检查阶段停止，未读取官方快照，也未写入业务数据。可用“仅对账”重新检查可核对范围。"
+            if selected["error"] == "目标数据库结构发生变化，需重新核验迁移基线"
+            else h(selected["error"])
+        )
     for message in report.get("snapshot_blockers", []):
         alerts.append(h(message))
     files = report.get("files")
-    if files:
-        for ident in files["mismatches"]:
-            alerts.append("文件差异 " + h(ident))
     history_html = "".join(
         f'<li><a href="?run={h(j["id"])}"><span>{MODES[j["mode"]]}</span>{date_tag(j["created"])}<b>{STATES[j["state"]]}</b></a></li>'
         for j in history
@@ -182,31 +226,31 @@ def render_page(cfg, jobs, run_id, token):
     )
     delta = report.get("delta")
     delta_html = (
-        f"<p>源端新增 {delta['added']} · 更新 {delta['updated']} · 移除 {delta['removed']} · 本批写入 {report['written']}</p>"
+        f"<p>官方相对迁移基线：新增 {delta['added']} · 更新 {delta['updated']} · 移除 {delta['removed']}</p>"
         if delta
         else ""
     )
-    binary_html = (
-        f"<p>文件校验 {files['matched']} / {files['expected']} · SHA-256</p>"
-        if files
-        else ""
-    )
+    binary_html = file_notice(files, tables.get("attachment", {}))
     download = (
         f'<a href="{path}/report?run={h(selected["id"])}" download="reconciliation.json">下载完整明细</a>'
         if report
         else ""
     )
+    policy = f'<aside id="write-policy" class="notice" role="note"><strong>只读对账</strong><p>{READ_ONLY_NOTICE}</p></aside>' if read_only else ""
+    written = f'<p>本批业务写入 {report["written"]}</p>' if "written" in report else ""
+    empty = '<p class="empty">本次未生成记录对账结果，不能据此判断双方数据一致或缺失。</p>' if not tables else ""
     return f"""<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>数据对账 · Multica</title><link rel="stylesheet" href="{path}/style.css"><script defer src="{path}/page.js"></script></head>
 <body data-active="{int(bool(active and selected and active["id"] == selected["id"]))}"><main data-reconciliation><header><a href="/{slug}/issues" target="_top">← 工作区</a><div class="eyebrow">MULTICA / SELF-HOST</div><h1>数据对账</h1>
-<p>官方服务 → 自部署工作区</p></header>
+<p>{"官方与自部署 · 只读比较" if read_only else "官方服务 → 自部署工作区"}</p></header>
+{policy}
 <section class="actions"><form action="{path}/runs" method="post"><input type="hidden" name="csrf" value="{h(token)}">
-<button class="primary" name="mode" value="sync" {"disabled" if active else ""}>运行增量同步</button>
-<button name="mode" value="compare" {"disabled" if active else ""}>仅对账</button></form>{active_html}</section>
+<button class="primary" name="mode" value="compare" {"disabled" if active else ""}>仅对账</button>
+<button name="mode" value="sync" {"disabled" if active or read_only else ""} {('aria-describedby="write-policy"' if read_only else "")}>运行增量同步</button></form>{active_html}</section>
 <section class="card"><div class="heading"><h2>{MODES.get((selected or {}).get("mode"), "最近一次对账")}</h2><b class="badge {h(state)}">{STATES.get(state, "尚无记录")}</b></div>
-<p>{date_tag((selected or {}).get("finished") or (selected or {}).get("created"))}</p><dl>{metrics_html}</dl>{delta_html}{binary_html}{download}
+<p>{date_tag((selected or {}).get("finished") or (selected or {}).get("created"))}</p><dl>{metrics_html}</dl>{delta_html}{written}{binary_html}{download}{schema_notice(report)}
 {('<ul class="alerts">' + "".join("<li>" + a + "</li>" for a in alerts) + "</ul>") if alerts else ""}</section>
-<section><h2>分类明细</h2><div class="grid"><table><thead><tr><th>数据类型</th><th>官方</th><th>自部署</th><th>结果</th></tr></thead><tbody>{"".join(rows)}</tbody></table></div></section>
+<section><h2>分类明细</h2>{empty}<div class="grid"><table><thead><tr><th>数据类型</th><th>官方</th><th>自部署</th><th>结果</th></tr></thead><tbody>{"".join(rows)}</tbody></table></div></section>
 <section><h2>运行历史</h2><ul class="history">{history_html}</ul></section></main></body></html>"""
 
 
@@ -289,6 +333,8 @@ class Handler(BaseHTTPRequestHandler):
                 )
                 if not hmac.compare_digest(form["csrf"][0], token):
                     return self.reply(403)
+                if form["mode"][0] == "sync" and not sync_enabled(self.cfg):
+                    return self.reply(409, READ_ONLY_NOTICE)
                 run = self.jobs.enqueue(form["mode"][0], actor[0])
             except (ValueError, KeyError):
                 return self.reply(400)
