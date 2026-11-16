@@ -127,7 +127,7 @@ describe("HelpLauncher", () => {
   it("links to the download page on web", () => {
     render(<HelpLauncher />);
     const link = screen.getByRole("link", { name: /Desktop app/ });
-    expect(link).toHaveAttribute("href", "https://multica.ai/download");
+    expect(link).toHaveAttribute("href", "/download");
   });
 
   it.each([
