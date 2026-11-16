@@ -25,6 +25,13 @@ vi.mock("expo-image", () => ({ Image: "ExpoImage" }));
 vi.mock("react-native-image-viewing", () => ({ default: "ImageView" }));
 vi.mock("@/components/ui/text", () => ({ Text: "Text" }));
 
+vi.mock("@/lib/use-attachment-media", () => ({ useAttachmentMedia: (media: { uri: string }) => media.uri }));
+vi.mock("@/lib/use-capability-clock", () => ({ useCapabilityClock: () => 0 }));
+vi.mock("@/data/queries/attachments", () => ({ attachmentCapabilityOptions: vi.fn() }));
+vi.mock("@/data/auth-store", () => ({ useAuthStore: (select: (value: { user: null }) => unknown) => select({ user: null }) }));
+vi.mock("@/data/workspace-store", () => ({ useWorkspaceStore: (select: (value: { currentWorkspaceId: null }) => unknown) => select({ currentWorkspaceId: null }) }));
+vi.mock("@tanstack/react-query", () => ({ useQueries: () => [] }));
+
 import { preprocessMobileMarkdown } from "./preprocess";
 import { splitMarkdown } from "./split-markdown";
 import { ImageSequenceProvider } from "./image-sequence";
@@ -96,10 +103,11 @@ describe("mobile Markdown image sequence wiring", () => {
     expect(state.setters[0]).toHaveBeenCalledExactlyOnceWith({
       images: [
         { uri: "https://cdn.example/first.png" },
-        { uri: expectedUri },
+        { uri: expectedUri, attachmentId: attachments.length ? ID : undefined },
         { uri: "https://cdn.example/last.png" },
       ],
       index: 1,
+      sessionEpoch: 0,
     });
     expect(renderedUri).toBe(expectedUri);
   });
@@ -123,10 +131,11 @@ describe("mobile Markdown image sequence wiring", () => {
     expect(state.setters[0]).toHaveBeenCalledExactlyOnceWith({
       images: [
         { uri: "https://cdn.example/first.png" },
-        { uri: expectedUri },
+        { uri: expectedUri, attachmentId: attachments.length ? ID : undefined },
         { uri: "https://cdn.example/last.png" },
       ],
       index: 1,
+      sessionEpoch: 0,
     });
   });
 
@@ -139,7 +148,7 @@ describe("mobile Markdown image sequence wiring", () => {
     expect(segments.map((segment) => segment.type)).toEqual(["image", "prose", "image"]);
     expect((segments[1] as { content: string }).content).toMatch(/^\[📎 /);
     const provider = ImageSequenceProvider({ blocks: [{ content, attachments }], children: null });
-    expect(provider.props.value).toEqual([
+    expect(provider.props.value.map((media) => media.uri)).toEqual([
       "https://cdn.example/first.png",
       "https://cdn.example/last.png",
     ]);
@@ -148,7 +157,7 @@ describe("mobile Markdown image sequence wiring", () => {
   it("does not count an HTML image shown literally in code", () => {
     const content = '![first](https://cdn.example/first.png)\n\n`<img src="https://cdn.example/a.png">`\n\n![last](https://cdn.example/last.png)';
     const provider = ImageSequenceProvider({ blocks: [{ content }], children: null });
-    expect(provider.props.value).toEqual([
+    expect(provider.props.value.map((media) => media.uri)).toEqual([
       "https://cdn.example/first.png",
       "https://cdn.example/last.png",
     ]);

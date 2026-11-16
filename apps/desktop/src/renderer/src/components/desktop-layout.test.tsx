@@ -163,7 +163,7 @@ describe("DesktopShell sidebar trigger", () => {
       const trafficLightInset = parseFloat(toolbar.style.paddingLeft);
       const toolbarWidth = parseFloat(toolbar.style.width);
       expect(trafficLightInset * factor).toBeCloseTo(88);
-      expect(parseFloat(topBar.style.paddingLeft) + 64).toBeCloseTo(toolbarWidth);
+      expect(parseFloat(topBar.style.paddingLeft) + 56).toBeCloseTo(toolbarWidth);
     }
   });
 
