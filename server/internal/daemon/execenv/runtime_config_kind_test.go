@@ -105,6 +105,9 @@ func TestBuildMetaSkillContentIssueBodyFormatting(t *testing.T) {
 				"Lead with the answer or outcome in the reader's language",
 				"Use bullets for parallel points, numbered lists for steps",
 				"[!IMPORTANT]",
+				"Separate confirmed facts, proposals and open questions",
+				"preserve its technical facts, exact identifiers, link destinations",
+				"> [!IMPORTANT]\n> **Review pending.**",
 				"Keep any explicitly required output format",
 			} {
 				if !strings.Contains(out, want) {
