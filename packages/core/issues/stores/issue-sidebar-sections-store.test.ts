@@ -20,10 +20,11 @@ describe("resolveIssueSidebarOrder", () => {
     expect(new Set(order).size).toBe(order.length);
   });
 
-  it("puts a section the save predates after the one it follows by default", () => {
-    const saved = ISSUE_SIDEBAR_SECTIONS.filter((id) => id !== "plugins").reverse();
+  it.each(["plugins", "children"] as const)("inserts %s into a saved order after its default predecessor", (section) => {
+    const saved = ISSUE_SIDEBAR_SECTIONS.filter((id) => id !== section).reverse();
     const order = resolveIssueSidebarOrder(saved);
-    expect(order.indexOf("plugins")).toBe(order.indexOf("wakeups") + 1);
+    const previous = ISSUE_SIDEBAR_SECTIONS[ISSUE_SIDEBAR_SECTIONS.indexOf(section) - 1]!;
+    expect(order.indexOf(section)).toBe(order.indexOf(previous) + 1);
   });
 });
 

@@ -1557,6 +1557,7 @@ export function IssueDetail({ issueId, onDelete, onDone, onUnsubscribeArchive, d
   const [propertiesOpen, setPropertiesOpen] = useState(true);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [parentIssueOpen, setParentIssueOpen] = useState(true);
+  const [sidebarSubIssuesOpen, setSidebarSubIssuesOpen] = useState(true);
   const [pullRequestsOpen, setPullRequestsOpen] = useState(true);
   const githubSettings = useGitHubSettings();
   const pluginsEnabled = useFeatureEnabled(PLUGINS_V1_FLAG, false);
@@ -3339,6 +3340,41 @@ export function IssueDetail({ issueId, onDelete, onDone, onUnsubscribeArchive, d
             </div>
           </div>}
         </div>
+    ),
+    children: childIssues.length > 0 && (
+      <div>
+        <IssueSidebarSectionHeader
+          title={t(($) => $.detail.sub_issues_label)}
+          count={childIssues.length}
+          open={sidebarSubIssuesOpen}
+          onOpenChange={setSidebarSubIssuesOpen}
+        />
+        {sidebarSubIssuesOpen && (
+          <ul className="px-2">
+            {childIssues.map((child) => (
+              <li key={child.id}>
+                <AppLink
+                  href={paths.issueDetail(child.id)}
+                  className="flex min-w-0 items-start gap-1.5 rounded-md px-2 py-2 text-label transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <span className="mt-0.5 shrink-0" title={resolveStatusLabel(child.status)}>
+                    <StatusIcon
+                      status={child.status}
+                      color={resolveStatusColor(child.status)}
+                      icon={resolveStatusIcon(child.status)}
+                      category={issueStatusCategory(child) ?? undefined}
+                      className="size-3.5"
+                    />
+                    <span className="sr-only">{resolveStatusLabel(child.status)}</span>
+                  </span>
+                  <span className="shrink-0 text-muted-foreground">{child.identifier}</span>
+                  <span className="min-w-0 [overflow-wrap:anywhere]">{child.title}</span>
+                </AppLink>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     ),
     duplicates: <IssueDuplicatesSection issueId={issue.id} />,
     // Pull requests — unavailable when the workspace disables the PR sidebar
