@@ -8,6 +8,8 @@ Read-only comparison uses the existing API projection and saved migration schema
 
 The small-host Compose overlay reserves 384 MiB for PostgreSQL. Its connections and a `pg_dump` reader share that container budget; a full cgroup can stall readers even when the host has available memory. Capture an optional live database backup before stopping the operator services, and keep its reader bounded. Reverting this console-only change restores operator code, configuration and queue state; it does not require rolling back newer business data.
 
+The worker uses a 512 MiB memory soft limit within its 560 MiB hard limit. Full transcript snapshots temporarily need more than 400 MiB during parsing; a lower soft limit can leave a comparison stalled in memory reclaim. Keep the hard limit bounded on the shared host.
+
 The worker reads the official API with a dedicated source PAT. It enumerates current resources on every pass. For completed runs it uses the
 official task-message `since` cursor and rechecks the last cached message against
 the API. Changed or missing anchors and message sequences with gaps trigger a
