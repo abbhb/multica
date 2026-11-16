@@ -6,6 +6,8 @@ Both services default to read-only mode. They refuse incremental sync unless the
 
 Read-only comparison uses the existing API projection and saved migration schema. Additive target-schema changes can be compared without replacing that schema or rebinding the baseline; the report names the excluded new columns and remains **Partial comparison**. Removed or changed existing columns stop the run with an explicit coverage report before reading either API. An old failed schema check has no comparison result and must not be read as evidence of missing data.
 
+The small-host Compose overlay reserves 384 MiB for PostgreSQL. Its connections and a `pg_dump` reader share that container budget; a full cgroup can stall readers even when the host has available memory. Capture an optional live database backup before stopping the operator services, and keep its reader bounded. Reverting this console-only change restores operator code, configuration and queue state; it does not require rolling back newer business data.
+
 The worker reads the official API with a dedicated source PAT. It enumerates current resources on every pass. For completed runs it uses the
 official task-message `since` cursor and rechecks the last cached message against
 the API. Changed or missing anchors and message sequences with gaps trigger a
