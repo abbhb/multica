@@ -21,7 +21,7 @@
  */
 import type { RefObject } from "react";
 import StarterKit from "@tiptap/starter-kit";
-import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
+import { CodeBlockExtension } from "./code-block";
 import Placeholder from "@tiptap/extension-placeholder";
 import Link from "@tiptap/extension-link";
 import Typography from "@tiptap/extension-typography";
@@ -48,6 +48,7 @@ import { createSlashCommandSuggestion, createBuiltinCommandSuggestion } from "./
 import type { BuiltinCommandSuggestionOptions } from "./slash-command-suggestion";
 import { SuggestionTriggerArmingExtension } from "./suggestion-trigger-arming";
 import { CodeBlockView } from "./code-block-view";
+import { CalloutBlockquote } from "./callout-blockquote";
 import { TableView } from "./table-view";
 import { RICH_TABLE_CHROME_ATTRIBUTE } from "../../rich-content/rich-table";
 import { PatchedListItem, PatchedTaskItem } from "./list-item";
@@ -147,6 +148,7 @@ export interface EditorExtensionsOptions {
   placeholder?: string | (() => string);
   queryClient?: import("@tanstack/react-query").QueryClient;
   onSubmitRef?: RefObject<(() => void) | undefined>;
+  onEnterRef?: RefObject<(() => void) | undefined>;
   onUploadFileRef?: RefObject<
     ((file: File, uploadId: string) => Promise<UploadResult | null>) | undefined
   >;
@@ -210,6 +212,7 @@ export function createEditorExtensions(
       heading: { levels: [1, 2, 3, 4, 5, 6] },
       link: false,
       codeBlock: false,
+      blockquote: false,
       // Underline has no Markdown representation. Tiptap's extension serializes
       // the mark as `++text++`, which is not CommonMark or GFM, so ReadonlyContent
       // (react-markdown + remark-gfm) renders the delimiters literally. Disabling
@@ -223,6 +226,7 @@ export function createEditorExtensions(
       // standard split → lift fallback chain.
       listItem: false,
     }),
+    CalloutBlockquote,
     PatchedListItem,
     // Checkbox task lists: `- [ ]` / `- [x]`. TaskList + TaskItem ship their own
     // markdown tokenizer / renderMarkdown, an input rule (typing `[] ` / `[x] `),
@@ -231,7 +235,7 @@ export function createEditorExtensions(
     // `- ` still falls through to PatchedListItem's bullet list.
     TaskList,
     PatchedTaskItem,
-    CodeBlockLowlight.extend({
+    CodeBlockExtension.extend({
       addNodeView() {
         return ReactNodeViewRenderer(CodeBlockView);
       },
@@ -309,7 +313,7 @@ export function createEditorExtensions(
       if (!fn) return false;
       fn();
       return true;
-    }),
+    }, () => options.onEnterRef?.current),
     createBlurShortcutExtension(),
     createFileUploadExtension(options.onUploadFileRef!, options.pasteAsFileThresholdRef),
   ];

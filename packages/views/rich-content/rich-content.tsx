@@ -82,6 +82,8 @@ import {
 } from "./rich-code-block";
 import { RichTable, RichTableSourceContext } from "./rich-table";
 import { getTextContent } from "./rich-table-model";
+import { rehypeCallouts } from "./callouts";
+import { RichCallout } from "./rich-callout";
 import "katex/dist/katex.min.css";
 import "../editor/styles/index.css";
 import "./rich-content.css";
@@ -472,6 +474,7 @@ function RichPre({ children }: RichPreProps) {
 // app and react-markdown can bail out of unchanged subtrees.
 const COMPONENTS: Partial<Components> = {
   a: RichLink,
+  blockquote: RichCallout,
 
   // Images — unified through <Attachment>. The resolver context provided by
   // AttachmentDownloadProvider turns a CDN URL into a full record when
@@ -530,6 +533,7 @@ const REMARK_PLUGINS = [
 const REHYPE_PLUGINS = [
   rehypeRaw,
   [rehypeSanitize, markdownSanitizeSchema],
+  rehypeCallouts,
   rehypeKatex,
 ] satisfies NonNullable<ReactMarkdownOptions["rehypePlugins"]>;
 
@@ -619,6 +623,7 @@ export const RichContent = memo(function RichContent({
       <div
         ref={wrapperRef}
         data-rich-content=""
+        data-mc="content"
         data-density={density}
         data-phase={phase}
         className={cn(

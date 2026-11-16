@@ -33,9 +33,8 @@ For repeated incremental syncs while Cloud remains in use, install the
 
 The storage base URL is intentionally empty: attachment metadata uses durable API
 download endpoints. Nginx also forwards `/uploads/` to the backend for local file
-previews. Raw local upload URLs require a session or token and access to the
-object’s user or workspace. Attachment API download URLs may instead use a
-short-lived capability. Existing raw image links without attachment records may
+previews. Raw local upload URLs are disabled. Read attachments through their authorized
+API endpoints or short-lived signed download capabilities. Existing raw image links without attachment records may
 need replacement in token-mode clients; legacy SVG avatars should be re-uploaded
 as raster images. Configure mail delivery for normal email-code login; without
 a mail provider the upstream self-host backend logs verification codes locally.

@@ -10,13 +10,53 @@ formulae, and container images.
 The verification job runs the Go tests and `govulncheck` before any publishing
 job starts. The vulnerability scan is fail-closed by default.
 
-CI and release jobs require Go `~1.27.3`: at least 1.27.3, while accepting
+Release notes use GoReleaser's GitHub changelog to credit commit authors and
+recognized co-authors between the previous and current tags. Keep all commits,
+including documentation, tests, and chores, so their authors are credited too.
+Commit-subject `@` characters are separated from the following text with an HTML
+comment; only the generated author mentions populate GitHub's Contributors list.
+
+CI and release jobs require Go `~1.27.4`: at least 1.27.4, while accepting
 newer 1.27 patches. This security floor is independent of the development
 minimum in `server/go.mod`. A plain `1.27.x` can resolve to an older patch
 while the `setup-go` version manifest catches up with an official Go release.
 When raising the security floor, update all Go workflows and the pinned
 Go builder image in `Dockerfile` together so shipped binaries also receive
 the fixes.
+
+## Self-hosted fork releases
+
+For `abbhb/multica`, the same tag workflow builds both macOS architectures,
+publishes their DMG, ZIP, update metadata and SHA-256 checksums to the fork,
+then copies the exact installers into both Web image architectures. Web image
+publication waits for the desktop bundle; a missing architecture blocks it.
+The rail's desktop icon and Help download link open this server's `/download`
+page. The installers and `/desktop/SHA256SUMS` are served from the image,
+without a GitHub redirect. Desktop updates use the fork's release feed.
+
+The fork's macOS builds use ad-hoc signatures and are not Apple-notarized.
+Keep that limitation in the release notes. To build the same download bundle
+locally, package from the reviewed release tag and run:
+
+```sh
+node scripts/stage-desktop-downloads.mjs apps/desktop/dist X.Y.Z
+docker build -f Dockerfile.web --build-arg BUNDLE_DESKTOP_DOWNLOADS=true .
+```
+
+Never commit the files in `desktop-downloads/`. Before deployment, back up the
+database, uploads and migration-console state together, and retain the previous
+image digests. A schema rollback requires restoring that same backup set.
+
+If GitHub Actions is unavailable, the fork can publish the same release locally
+from its reviewed, tagged `main` commit. Run the normal frontend checks, guarded
+Go tests with the race detector, and `go tool govulncheck ./...` first. Package
+both Mac architectures with `CSC_IDENTITY_AUTO_DISCOVERY=false` and
+`-c.mac.identity=-`, stage the downloads, then build the backend and Web images
+with the same version and commit labels. Upload the installers, updater metadata
+and checksums to that tag's GitHub Release. Transfer the built images to the
+self-hosted server and pin their image IDs in its Compose configuration. Record
+that CI was unavailable and retain the local check logs; local checks must not
+be described as a successful GitHub Actions run.
 
 ## Emergency vulnerability-scan bypass
 

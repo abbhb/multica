@@ -33,6 +33,8 @@ Thumbs.db
 # Test
 e2e/test-results
 coverage
+/.playwright-cli/
+/output/
 
 # Docs
 /docs/

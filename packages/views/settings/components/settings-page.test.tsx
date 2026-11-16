@@ -1,5 +1,5 @@
 import { fireEvent, screen, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SidebarProvider, useSidebar } from "@multica/ui/components/ui/sidebar";
 import { configStore } from "@multica/core/config";
@@ -72,6 +72,7 @@ vi.mock("./connected-apps-tab", () => ({
 
 vi.mock("@multica/core/paths", () => ({
   useCurrentWorkspace: () => ({ id: "ws-1", name: "Acme" }),
+  useWorkspacePaths: () => ({ autopilots: () => "/acme/autopilots" }),
 }));
 vi.mock("@multica/core/workspace/avatar-url", () => ({
   resolvePublicFileUrl: (url: string | null | undefined) => url ?? null,
@@ -272,7 +273,7 @@ describe("SettingsPage Plugin feature flag", () => {
 });
 
 describe("SettingsPage workflows", () => {
-  it("mounts workflows without feature flag configuration and keeps wakeups", () => {
+  it("mounts workflows without feature flag configuration", () => {
     navigationState.search = "tab=workflows";
 
     renderWithI18n(<SettingsPage />);
@@ -280,7 +281,6 @@ describe("SettingsPage workflows", () => {
     expect(screen.getByText("WorkflowsTab")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Workflows" })).toHaveAttribute("aria-current", "page");
     expect(screen.queryByRole("link", { name: "Issue Statuses" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Wakeups" })).toBeInTheDocument();
   });
 
   it("opens old status catalog links in workflows", () => {
@@ -290,7 +290,14 @@ describe("SettingsPage workflows", () => {
 
     expect(screen.getByText("WorkflowsTab")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Workflows" })).toHaveAttribute("aria-current", "page");
-    expect(screen.getByRole("link", { name: "Wakeups" })).toBeInTheDocument();
+  });
+
+  it("sends old wakeup default links to the issue wakeups list", () => {
+    navigationState.search = "tab=wakeups";
+
+    renderWithI18n(<SettingsPage />);
+
+    expect(replace).toHaveBeenCalledWith("/acme/autopilots?tab=wakeups");
   });
 });
 
@@ -348,7 +355,7 @@ describe("SettingsPage information architecture", () => {
     renderWithI18n(<SettingsPage />);
     expect(
       within(nav()).queryByRole("link", {
-        name: /^(Issue|Chat|GitHub|Labs|Integrations|Repositories)$/,
+        name: /^(Issue|Chat|GitHub|Labs|Integrations|Repositories|Wakeups)$/,
       }),
     ).not.toBeInTheDocument();
   });
@@ -373,7 +380,7 @@ describe("SettingsPage information architecture", () => {
     );
   });
 
-  it("lists Connected apps with the personal pages only when Composio is available", () => {
+  it("lists Connected apps with the workspace connections only when Composio is available", () => {
     const first = renderWithI18n(<SettingsPage />);
     expect(screen.queryByRole("link", { name: "Connected apps" })).toBeNull();
     first.unmount();
@@ -382,8 +389,9 @@ describe("SettingsPage information architecture", () => {
     navigationState.search = "tab=integrations&connected=notion";
     renderWithI18n(<SettingsPage />);
     const personal = within(nav()).getByRole("region", { name: /Personal/ });
+    expect(within(personal).queryByRole("link", { name: "Connected apps" })).toBeNull();
     expect(
-      within(personal).getByRole("link", { name: "Connected apps" }),
+      within(nav()).getByRole("link", { name: "Connected apps" }),
     ).toHaveAttribute("aria-current", "page");
     expect(screen.getByText("ConnectedAppsTab")).toBeInTheDocument();
   });
@@ -483,5 +491,66 @@ describe("SettingsPage search", () => {
       { target: { value: "plugins" } },
     );
     expect(screen.getByText("No matching settings")).toBeInTheDocument();
+  });
+});
+
+describe("SettingsPage search for the browser notifications row", () => {
+  // The row only renders on web with the Notification API, so search must
+  // follow the same rule or a result opens the page and finds nothing.
+  class FakeNotification {
+    static permission: NotificationPermission = "default";
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function search(value: string) {
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search settings" }), {
+      target: { value },
+    });
+  }
+
+  it("offers it on web when the Notification API exists", () => {
+    vi.stubGlobal("Notification", FakeNotification);
+    renderWithI18n(<SettingsPage />);
+    search("browser");
+    const results = screen.getByRole("listbox", { name: "Search settings" });
+    const option = within(results).getByRole("option", { name: /Browser notifications/ });
+    fireEvent.click(option);
+    expect(push).toHaveBeenCalledWith(
+      "/acme/settings?tab=notifications&section=browser",
+    );
+  });
+
+  it.each(["browser", "notifi"])("leaves it out on desktop when searching %s", (query) => {
+    // Electron exposes Notification too; the desktop shell alone rules it out.
+    vi.stubGlobal("Notification", FakeNotification);
+    vi.stubGlobal("desktopAPI", { pickDirectory: vi.fn() });
+    renderWithI18n(<SettingsPage />);
+    search(query);
+    expect(
+      screen.queryByRole("option", { name: /Browser notifications/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("leaves it out where the Notification API is missing", () => {
+    vi.stubGlobal("Notification", undefined);
+    renderWithI18n(<SettingsPage />);
+    search("browser");
+    expect(
+      screen.queryByRole("option", { name: /Browser notifications/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps the other notification results on desktop", () => {
+    vi.stubGlobal("Notification", FakeNotification);
+    vi.stubGlobal("desktopAPI", { pickDirectory: vi.fn() });
+    renderWithI18n(<SettingsPage />);
+    search("notifi");
+    const results = screen.getByRole("listbox", { name: "Search settings" });
+    expect(
+      within(results).getByRole("option", { name: /Show system notifications/ }),
+    ).toBeInTheDocument();
   });
 });

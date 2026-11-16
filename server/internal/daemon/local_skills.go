@@ -23,7 +23,7 @@ const (
 	// Kept in lockstep with the server-side importer's maxImportFileCount so a
 	// skill that imports from a URL/archive also imports from a runtime-local
 	// directory. The 8 MiB bundle cap is the real guard on skill size.
-	maxLocalSkillFileCount = 256
+	maxLocalSkillFileCount = 512
 	// Cap how deep skill discovery descends below a runtime root. opencode
 	// stores skills two levels deep (e.g. `release/reporter/SKILL.md`); a
 	// few extra levels covers any realistic future layout while bounding
@@ -221,6 +221,11 @@ func localSkillRootsForProvider(provider string) ([]localSkillRoot, bool, error)
 				qwenHome = filepath.Join(home, ".qwen")
 			}
 			providerRoot = filepath.Join(qwenHome, "skills")
+		case "amp":
+			providerRoot = filepath.Join(home, ".config", "amp", "skills")
+			additionalProviderRoots = []string{filepath.Join(home, ".config", "agents", "skills")}
+		case "droid":
+			providerRoot = filepath.Join(home, ".factory", "skills")
 		case "qwenpaw":
 			// QWENPAW_WORKING_DIR (or legacy COPAW_WORKING_DIR) overrides
 			// QwenPaw's global ~/.qwenpaw directory, which owns settings,
@@ -254,6 +259,8 @@ func localSkillRootsForProvider(provider string) ([]localSkillRoot, bool, error)
 				configHome = filepath.Join(home, ".config")
 			}
 			providerRoot = filepath.Join(configHome, "muse", "skills")
+		case "zcode":
+			providerRoot = filepath.Join(home, ".zcode", "skills")
 		default:
 			return nil, false, nil
 		}

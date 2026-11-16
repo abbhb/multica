@@ -18,9 +18,69 @@
   margin-bottom: 0;
 }
 
-.rich-content-compact p {
-  margin-top: 0.375rem;
-  margin-bottom: 0.375rem;
+.rich-text-editor:is([data-rich-content], .ProseMirror) {
+  font-size: var(--text-body-lg);
+  --content-leading: 1.8;
+  --content-leading-cjk: 1.85;
+  --table-cell-padding: 0.65rem 0.9rem;
+  --table-header-weight: 600;
+  --table-header-color: var(--foreground);
+  --table-radius: var(--radius-xl);
+  --blockquote-style: normal;
+  --code-color: var(--foreground);
+  --code-background: var(--muted);
+}
+
+.rich-text-editor:is([data-rich-content], .ProseMirror) :is(h1, h2, h3, h4, h5, h6) {
+  text-wrap: pretty;
+  margin-top: 1.75em;
+  margin-bottom: 0.7em;
+  font-weight: 650;
+}
+
+.rich-text-editor:is([data-rich-content], .ProseMirror) h2 {
+  font-size: var(--text-title-lg);
+}
+
+.rich-text-editor:is([data-rich-content], .ProseMirror) h3 {
+  font-size: var(--text-title-sm);
+}
+
+.rich-text-editor:is([data-rich-content], .ProseMirror) p {
+  margin-block: 0.85em;
+}
+
+.rich-text-editor:is([data-rich-content], .ProseMirror) > :first-child {
+  margin-top: 0;
+}
+
+.rich-text-editor:is([data-rich-content], .ProseMirror) > :last-child {
+  margin-bottom: 0;
+}
+
+.rich-text-editor:is([data-rich-content], .ProseMirror) li > p {
+  margin-block: 0;
+}
+
+.rich-text-editor:is([data-rich-content], .ProseMirror) :is(th, td) > p {
+  margin-block: 0;
+}
+
+.rich-text-editor:is([data-rich-content], .ProseMirror) li > p + p {
+  margin-top: 0.5em;
+}
+
+.rich-text-editor:is([data-rich-content], .ProseMirror) :is(th, td) {
+  font-size: inherit;
+}
+
+.rich-text-editor:is([data-rich-content], .ProseMirror) th {
+  background: var(--muted);
+}
+
+.rich-content-compact.rich-text-editor p {
+  margin-top: 0.65em;
+  margin-bottom: 0.65em;
 }
 
 .rich-content-compact ul,
@@ -34,4 +94,88 @@
 .rich-content-compact .code-block-wrapper {
   margin-top: 0.5rem;
   margin-bottom: 0.5rem;
+}
+
+.rich-text-editor .rich-callout {
+  --callout-accent: var(--brand);
+  margin-block: 1.25em;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--callout-accent) 35%, var(--border));
+  border-inline-start: 3px solid var(--callout-accent);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--callout-accent) 4%, var(--background));
+}
+
+.rich-text-editor .rich-callout[data-callout="tip"] {
+  --callout-accent: var(--success);
+}
+
+.rich-text-editor .rich-callout[data-callout="important"] {
+  --callout-accent: var(--callout-important);
+}
+
+.rich-text-editor .rich-callout[data-callout="warning"] {
+  --callout-accent: var(--warning);
+}
+
+.rich-text-editor .rich-callout[data-callout="caution"] {
+  --callout-accent: var(--destructive);
+}
+
+.rich-callout-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1rem;
+  font-weight: 650;
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--callout-accent) 9%, transparent);
+}
+
+.rich-callout-title svg {
+  width: 1.1rem;
+  height: 1.1rem;
+  flex-shrink: 0;
+  color: var(--callout-accent);
+}
+
+.rich-callout-body {
+  padding: 0.8rem 1rem;
+  min-width: 0;
+}
+
+.rich-text-editor:is([data-rich-content], .ProseMirror) .rich-callout-body > :first-child {
+  margin-top: 0;
+}
+
+.rich-text-editor:is([data-rich-content], .ProseMirror) .rich-callout-body > :last-child {
+  margin-bottom: 0;
+}
+
+.rich-text-editor.ProseMirror:not(.ProseMirror-focused) .callout-marker {
+  display: none;
+}
+
+.rich-text-editor .callout-marker {
+  color: var(--muted-foreground);
+  font-size: var(--text-label);
+}
+
+.rich-text-editor blockquote.rich-callout {
+  padding: 0;
+  font-style: normal;
+  color: var(--foreground);
+}
+
+.rich-text-editor blockquote[data-node-view-wrapper],
+.rich-text-editor blockquote [data-node-view-content-react] {
+  display: block;
+}
+
+.rich-text-editor .rich-callout [data-node-view-content-react] > :first-child {
+  margin-top: 0;
+}
+
+.rich-text-editor .rich-callout [data-node-view-content-react] > :last-child {
+  margin-bottom: 0;
 }

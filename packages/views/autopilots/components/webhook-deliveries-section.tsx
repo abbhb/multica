@@ -33,7 +33,7 @@ import { copyText } from "@multica/ui/lib/clipboard";
 import { TruncatedTooltip } from "@multica/ui/components/common/truncated-tooltip";
 import { toast } from "sonner";
 import { useLocale, useT } from "../../i18n";
-import { ObjectSection, ObjectSectionCard } from "../../layout/object-page";
+import { ObjectSection, ObjectSectionCard, ObjectSectionEmpty } from "../../layout/object-page";
 import type {
   WebhookDelivery,
   WebhookDeliveryStatus,
@@ -132,9 +132,7 @@ export function WebhookDeliveriesSection({
           ))}
         </div>
       ) : deliveries.length === 0 ? (
-        <div className="rounded-lg border border-dashed p-4 text-center text-body text-muted-foreground">
-          {t(($) => $.deliveries.empty)}
-        </div>
+        <ObjectSectionEmpty icon={Webhook} description={t(($) => $.deliveries.empty)} />
       ) : (
         <ObjectSectionCard>
           {deliveries.map((delivery) => (
@@ -254,8 +252,8 @@ function DeliveryDetailDialog({
       {/* max-h + overflow-y-auto: webhook bodies + headers + response can
           easily exceed viewport height. Without a cap the dialog grows past
           the screen edge and the bottom (e.g. Replay button) becomes
-          unreachable. 85vh leaves breathing room around the dialog. */}
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          unreachable. 85% leaves breathing room around the dialog. */}
+      <DialogContent className="max-w-2xl max-h-[85%] overflow-y-auto">
         <DialogTitle className="flex items-center gap-2">
           <Webhook className="h-4 w-4 text-muted-foreground" />
           {t(($) => $.deliveries.detail.title)}
@@ -375,7 +373,7 @@ function MetaRow({
   return (
     <div className="flex flex-col">
       <dt className="text-muted-foreground">{label}</dt>
-      <TruncatedTooltip content={value}>
+      <TruncatedTooltip content={value} focusable>
         <dd
           className={cn(
             "truncate text-foreground",

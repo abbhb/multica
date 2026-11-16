@@ -32,7 +32,7 @@ import { useTabHistory } from "@/hooks/use-tab-history";
 import { browsingHistoryKeyForUrl } from "@/stores/tab-store";
 
 // Native traffic lights do not scale with Chromium's page zoom.
-const TRAFFIC_LIGHT_CLEARANCE = 88;
+export const TRAFFIC_LIGHT_CLEARANCE = 88;
 export const WINDOW_TOOLBAR_CLEARANCE = 200;
 export function windowToolbarClearance(zoomFactor: number): number {
   return (
@@ -164,17 +164,17 @@ function HistoryMenuItem({
   const { visual, title } = useTabPresentation(url, fallbackTitle);
 
   return (
-    <DropdownMenuItem
-      className="h-8 min-w-0 gap-2 px-2"
-      onClick={onSelect}
-    >
-      <ResourceLeadingVisual visual={visual} />
-      <TruncatedTooltip content={title}>
+    <TruncatedTooltip content={title}>
+      <DropdownMenuItem
+        className="h-8 min-w-0 gap-2 px-2"
+        onClick={onSelect}
+      >
+        <ResourceLeadingVisual visual={visual} />
         <span className="min-w-0 flex-1 truncate">
           {title}
         </span>
-      </TruncatedTooltip>
-    </DropdownMenuItem>
+      </DropdownMenuItem>
+    </TruncatedTooltip>
   );
 }
 
@@ -256,6 +256,7 @@ export function WindowToolbar({ zoomFactor = 1 }: { zoomFactor?: number }) {
   return (
     <div
       data-slot="window-toolbar"
+      data-mc="window-toolbar"
       className="fixed left-0 top-0 z-30 flex h-10 shrink-0 items-center pr-3"
       style={
         {

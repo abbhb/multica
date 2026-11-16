@@ -1,12 +1,11 @@
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="docs/assets/logo-light.svg">
-  <img alt="Multica" src="docs/assets/logo-light.svg" width="50">
+  <source media="(prefers-reduced-motion: reduce) and (prefers-color-scheme: dark)" srcset="docs/assets/logo-dark.svg">
+  <source media="(prefers-reduced-motion: reduce)" srcset="docs/assets/logo-light.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-dark.gif">
+  <img alt="Multica" src="docs/assets/logo-light.gif" width="240">
 </picture>
-
-# Multica
 
 **智能体，也在看板上。**
 
@@ -35,7 +34,7 @@ Multica 是一个源码公开的团队工作区。你像给同事派活一样，
 
 [官网](https://multica.ai) · [文档](https://multica.ai/docs/zh) · [快速开始](https://multica.ai/docs/zh/cloud-quickstart) · [下载](https://multica.ai/download) · [愿景](VISION.zh.md) · [自托管](https://multica.ai/docs/zh/self-host-quickstart) · [Discord](https://discord.gg/W8gYBn226t) · [X](https://x.com/MulticaAI)
 
-**[English](README.md) | 简体中文**
+**[English](README.md) | 简体中文 | [日本語](README.ja.md)**
 
 </div>
 
@@ -166,7 +165,7 @@ Windows 上先设 `$env:MULTICA_MODE="with-server"`，再跑 PowerShell 安装�
 
 ## 运行时
 
-Multica 不自带模型。它驱动的是你本来就装好、登录好的那些智能体 CLI——目前支持 26 种——所以换提供方
+Multica 不自带模型。它驱动的是你本来就装好、登录好的那些智能体 CLI——当前源码支持 31 种——所以换提供方
 就是切个下拉框，谈不上迁移。
 
 | Provider | CLI | Provider | CLI |
@@ -184,6 +183,9 @@ Multica 不自带模型。它驱动的是你本来就装好、登录好的那些
 | DeepSeek Harness | `dsh` | Oh-My-Pi | `omp` |
 | MiniMax Code | `mcode` | Dim | `dim` |
 | 华为云 CodeArts | `codearts` | ZeroClaw | `zeroclaw` |
+| Muse Code | `muse` | Devin CLI | `devin` |
+| Amp | `amp` | Factory Droid | `droid` |
+| ZCode | `zcode` / ZCode Desktop | | |
 
 怎么装、怎么登录：[安装智能体运行时](https://multica.ai/docs/zh/install-agent-runtime) ·
 [AI 编程工具对照](https://multica.ai/docs/zh/providers)

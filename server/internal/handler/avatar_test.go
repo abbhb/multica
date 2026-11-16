@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/multica-ai/multica/server/internal/storage"
+	"github.com/multica-ai/multica/server/internal/testutil"
 )
 
 // withAvatarStorage swaps the handler's storage/config for one test and
@@ -79,17 +80,38 @@ func TestResolveAvatarURL_CloudFrontSignedRewrites(t *testing.T) {
 	}
 }
 
-// Local avatars use the signed, publishability-checked endpoint.
-func TestResolveAvatarURL_LocalStorageSigned(t *testing.T) {
-	local := storage.NewLocalStorageFromEnv()
-	if local == nil {
-		t.Skip("local storage unavailable")
-	}
-	withAvatarStorage(t, local, "")
-
-	raw := local.ObjectURL(testAvatarKey)
-	if got := testHandler.resolveAvatarURL(raw); !strings.HasPrefix(got, avatarURLPathPrefix) {
-		t.Fatalf("resolveAvatarURL = %q, want signed avatar URL", got)
+func TestResolveAvatarURL_LocalStorageUsesSignedEndpoint(t *testing.T) {
+	for _, baseURL := range []string{"", "https://files.example.test"} {
+		t.Run("storage base="+baseURL, func(t *testing.T) {
+			t.Setenv("LOCAL_UPLOAD_DIR", t.TempDir())
+			t.Setenv("LOCAL_UPLOAD_BASE_URL", baseURL)
+			local := storage.NewLocalStorageFromEnv()
+			if local == nil {
+				t.Fatal("local storage unavailable")
+			}
+			withAvatarStorage(t, local, "https://api.example.test")
+			id := uuid.NewString()
+			key := "workspaces/" + testWorkspaceID + "/" + id + ".png"
+			const body = "AVATAR BYTES"
+			raw, err := local.Upload(context.Background(), key, []byte(body), "image/png", "avatar.png")
+			if err != nil {
+				t.Fatal(err)
+			}
+			dbfx.Insert(t, "attachment", testutil.Cols{
+				"id": id, "workspace_id": testWorkspaceID,
+				"uploader_type": "member", "uploader_id": testUserID,
+				"filename": "avatar.png", "url": raw,
+				"content_type": "image/png", "size_bytes": len(body),
+			})
+			want := "https://api.example.test" + avatarURLPath(key)
+			if got := testHandler.resolveAvatarURL(raw); got != want {
+				t.Fatalf("resolveAvatarURL = %q, want %q", got, want)
+			}
+			w := serveAvatarRequest(t, signAvatarKey(key), key)
+			if w.Code != http.StatusOK || w.Body.String() != body {
+				t.Fatalf("signed avatar: status=%d body=%q, want 200 %q", w.Code, w.Body.String(), body)
+			}
+		})
 	}
 }
 
@@ -583,23 +605,5 @@ func TestAvatarKeyIsPublishable_OperatorNamespace(t *testing.T) {
 		if w := serveAvatarRequest(t, signAvatarKey(key), key); w.Code != http.StatusFound {
 			t.Errorf("serve %q: status = %d, want 302", key, w.Code)
 		}
-	}
-}
-
-func TestAcceptAvatarURL_LocalUploadOwnerRequired(t *testing.T) {
-	t.Setenv("LOCAL_UPLOAD_DIR", t.TempDir())
-	local := storage.NewLocalStorageFromEnv()
-	withAvatarStorage(t, local, "")
-	own := local.ObjectURL("users/" + testUserID + "/avatar.png")
-	if _, status := acceptAvatarURL(t, own, ""); status != http.StatusOK {
-		t.Fatalf("own avatar: got %d", status)
-	}
-	other := local.ObjectURL("users/" + uuid.NewString() + "/avatar.png")
-	if _, status := acceptAvatarURL(t, other, ""); status != http.StatusForbidden {
-		t.Fatalf("other avatar: got %d", status)
-	}
-	traversal := local.ObjectURL("users/" + testUserID + "/../../users/other/avatar.png")
-	if _, status := acceptAvatarURL(t, traversal, ""); status != http.StatusForbidden {
-		t.Fatalf("traversal: got %d", status)
 	}
 }

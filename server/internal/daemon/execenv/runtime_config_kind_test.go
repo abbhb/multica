@@ -102,6 +102,10 @@ func TestBuildMetaSkillContentIssueBodyFormatting(t *testing.T) {
 				"do not add a Markdown H1 (`# ...`) to an issue body or description",
 				"start with prose or `##` subheadings",
 				"Only add an H1 when the user specifically requests one",
+				"Lead with the answer or outcome in the reader's language",
+				"Use bullets for parallel points, numbered lists for steps",
+				"[!IMPORTANT]",
+				"Keep any explicitly required output format",
 			} {
 				if !strings.Contains(out, want) {
 					t.Errorf("brief is missing issue-body formatting guidance %q\n---\n%s", want, out)
@@ -231,7 +235,7 @@ func TestQuickCreateBriefOwnsRunAndOutputRules(t *testing.T) {
 
 	for _, want := range []string{
 		// exactly one create, no retry — a retry would duplicate the issue
-		"Run exactly one `multica issue create --output json` invocation",
+		"Run exactly one `" + multicaCLICommand() + " issue create --output json` invocation",
 		"Do not retry for any reason",
 		// no issue to query, transition, or comment on
 		"Do NOT call `multica issue get`, `multica issue status`, or `multica issue comment add`",

@@ -14,21 +14,26 @@
  * are counted the same way on every client (mobile parity rule: mirror the
  * shared logic, own the UI).
  *
- * Stable attachment identities are preserved here. Native previews fetch
- * credential-free capabilities separately; expiring signatures never change
- * a clicked image's sequence position.
+ * Stable attachment identities match the renderer and remain unchanged when
+ * native previews refresh short-lived download capabilities. Bodies go through the
+ * renderer's HTML pass first: mobile shows `<img>` as a Markdown image, whose
+ * URL is entity-decoded and normalized, and drops the tags around it. Image
+ * file cards are decided by the same rule on both sides (see
+ * `preprocessFileCards`), so a card shown as a link is never counted.
  */
 import { createContext, use, useMemo, type ReactNode } from "react";
+import { normalizeUri } from "micromark-util-sanitize-uri";
 import {
   collectImageSequence,
   type ImageSequenceBlock,
 } from "@multica/core/attachments/image-sequence";
 import { attachmentMedia, type AttachmentMedia } from "@/lib/attachment-media";
+import { stripHtml } from "./preprocess";
 
 const ImageSequenceContext = createContext<readonly AttachmentMedia[]>([]);
 
 /**
- * Stable image sources for the surrounding screen, in render order. Empty when
+ * Resolved image URIs for the surrounding screen, in render order. Empty when
  * no provider is mounted — the lightbox then shows the tapped image alone.
  */
 export function useImageSequence(): readonly AttachmentMedia[] {
@@ -44,9 +49,18 @@ export function ImageSequenceProvider({
 }) {
   const uris = useMemo(
     () =>
-      collectImageSequence(blocks).map(
-        (item) => attachmentMedia(item.url, item.attachment ? [item.attachment] : undefined),
-      ),
+      collectImageSequence(
+        blocks.map((block) =>
+          block?.content ? { ...block, content: stripHtml(block.content) } : block,
+        ),
+      ).map((item) => {
+        // An unmatched image file card renders as a Markdown image, whose
+        // destination is normalized like any other.
+        const url = !item.imageByConstruction && !item.attachment
+          ? normalizeUri(item.url)
+          : item.url;
+        return attachmentMedia(url, item.attachment ? [item.attachment] : undefined);
+      }),
     [blocks],
   );
   return (

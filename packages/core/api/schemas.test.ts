@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  AgentTaskSchema,
+  IssueSchema,
   AppConfigSchema,
   WecomInstallationSchema,
   ListWecomInstallationsResponseSchema,
@@ -81,11 +83,14 @@ import { parseWithFallback } from "./schema";
 describe("IssueUnreadPageSchema", () => {
   const endpoint = "GET /api/issues/unread";
 
-  it("defaults a missing agent_id and next_cursor to null", () => {
+  it("defaults missing run fields and next_cursor to null", () => {
     const parsed = parseWithFallback(
       {
         items: [
-          { issue_id: "i-1", outcome: "completed", agent_id: "a-1", created_at: "2026-01-01T00:00:00Z" },
+          {
+            issue_id: "i-1", outcome: "completed", agent_id: "a-1", task_id: "t-1", comment_id: "c-1",
+            created_at: "2026-01-01T00:00:00Z",
+          },
           { issue_id: "i-2", outcome: "manual", created_at: "2026-01-01T00:00:00Z", extra: true },
         ],
       },
@@ -93,9 +98,9 @@ describe("IssueUnreadPageSchema", () => {
       EMPTY_ISSUE_UNREAD_PAGE,
       { endpoint },
     );
-    expect(parsed.items.map((u) => [u.issue_id, u.agent_id])).toEqual([
-      ["i-1", "a-1"],
-      ["i-2", null],
+    expect(parsed.items.map((u) => [u.issue_id, u.agent_id, u.task_id, u.comment_id])).toEqual([
+      ["i-1", "a-1", "t-1", "c-1"],
+      ["i-2", null, null, null],
     ]);
     expect(parsed.next_cursor).toBeNull();
   });
@@ -1081,6 +1086,59 @@ describe("UserSchema timezone drift", () => {
   });
 });
 
+describe("UserSchema whats_new_seen_version drift", () => {
+  const base = {
+    id: "11111111-1111-1111-1111-111111111111",
+    name: "Ada",
+    email: "ada@example.com",
+  };
+
+  it("leaves the field undefined when an older server omits it", () => {
+    const parsed = UserSchema.parse(base);
+    expect(parsed.whats_new_seen_version).toBeUndefined();
+  });
+
+  it("keeps null and string values distinct from absence", () => {
+    expect(UserSchema.parse({ ...base, whats_new_seen_version: null }).whats_new_seen_version).toBe(null);
+    expect(UserSchema.parse({ ...base, whats_new_seen_version: "0.7.2" }).whats_new_seen_version).toBe("0.7.2");
+  });
+
+  it("degrades a wrong-type value to undefined without discarding the user", () => {
+    const parsed = parseWithFallback(
+      { ...base, whats_new_seen_version: 7 },
+      UserSchema,
+      EMPTY_USER,
+      { endpoint: "GET /api/me" },
+    );
+    expect(parsed.email).toBe("ada@example.com");
+    expect(parsed.whats_new_seen_version).toBeUndefined();
+  });
+});
+
+describe("UserSchema star prompt drift", () => {
+  const base = {
+    id: "11111111-1111-1111-1111-111111111111",
+    name: "Ada",
+    email: "ada@example.com",
+  };
+
+  it("leaves the showing count undefined when an older server omits it", () => {
+    expect(UserSchema.parse(base).star_prompt_shown_count).toBeUndefined();
+  });
+
+  it("degrades wrong-type values to undefined without discarding the user", () => {
+    const parsed = parseWithFallback(
+      { ...base, star_prompt_shown_count: "2", star_prompt_starred_at: 1 },
+      UserSchema,
+      EMPTY_USER,
+      { endpoint: "GET /api/me" },
+    );
+    expect(parsed.email).toBe("ada@example.com");
+    expect(parsed.star_prompt_shown_count).toBeUndefined();
+    expect(parsed.star_prompt_starred_at).toBeUndefined();
+  });
+});
+
 describe("SquadListSchema member preview drift", () => {
   const baseSquad = {
     id: "squad-1",
@@ -2014,6 +2072,11 @@ describe("SidebarProjectPrefsDocSchema", () => {
 // dialog, the "ask your operator" state, the revoked-vs-active badge), so a
 // malformed response must degrade to the safe state rather than a broken one.
 describe("WeCom installation schemas", () => {
+  it("accepts the bot display name while remaining compatible with older servers", () => {
+    expect(WecomInstallationSchema.parse({ id: "i1", bot_name: "Support Bot" }).bot_name).toBe("Support Bot");
+    expect(WecomInstallationSchema.parse({ id: "i1" }).bot_name).toBeUndefined();
+    expect(WecomInstallationSchema.safeParse({ id: "i1", bot_name: 42 }).success).toBe(false);
+  });
   it("parses a well-formed installation", () => {
     const parsed = WecomInstallationSchema.parse({
       id: "i1",
@@ -2429,5 +2492,44 @@ describe("AgentActivityBucketListSchema duration", () => {
     expect(parsed[0]?.task_count).toBe(201);
     expect(parsed[0]?.duration_ms).toBeUndefined();
     expect(parsed[0]?.duration_count).toBeUndefined();
+  });
+});
+
+describe("task usage credits", () => {
+  const slice = {
+    provider: "qoder_cloud",
+    model: "",
+    input_tokens: 0,
+    output_tokens: 0,
+    cache_read_tokens: 0,
+    cache_write_tokens: 0,
+  };
+
+  it("keeps credits and treats a missing field as token-only usage", () => {
+    const parsed = AgentTaskSchema.parse({
+      id: "run",
+      usage: [{ ...slice, credits_micros: 1_250_000 }, { ...slice, provider: "anthropic" }],
+    });
+    expect(parsed.usage?.[0]?.credits_micros).toBe(1_250_000);
+    expect(parsed.usage?.[1]?.credits_micros).toBeUndefined();
+  });
+
+  it("drops malformed credits without losing the usage row", () => {
+    const parsed = AgentTaskSchema.parse({
+      id: "run",
+      usage: [{ ...slice, credits_micros: "lots" }],
+    });
+    expect(parsed.usage).toHaveLength(1);
+    expect(parsed.usage?.[0]?.credits_micros).toBeUndefined();
+  });
+});
+
+
+describe("Issue requester compatibility", () => {
+  it("preserves known null versus unknown legacy or malformed values", () => {
+    expect(IssueSchema.parse(baseIssue).requester_id).toBeUndefined();
+    expect(IssueSchema.parse({ ...baseIssue, requester_id: null }).requester_id).toBeNull();
+    expect(IssueSchema.parse({ ...baseIssue, requester_id: "member" }).requester_id).toBe("member");
+    expect(IssueSchema.parse({ ...baseIssue, requester_id: 42 }).requester_id).toBeUndefined();
   });
 });

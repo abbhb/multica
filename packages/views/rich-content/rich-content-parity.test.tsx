@@ -434,6 +434,9 @@ describe("semantic parity beyond Mermaid", () => {
     "```",
     "",
     "<mark>highlighted</mark>",
+    "",
+    "> [!IMPORTANT]",
+    "> Back up the database before upgrading.",
   ].join("\n");
 
   function renderReadonly() {
@@ -476,6 +479,8 @@ describe("semantic parity beyond Mermaid", () => {
       expect(within(container).getByTestId("issue-mention")).toBeInTheDocument();
       // Highlight
       expect(container.querySelector("mark")?.textContent).toBe("highlighted");
+      expect(within(container).getByRole("note", { name: "Important" })).toHaveTextContent("Back up the database before upgrading.");
+      expect(container.querySelector('[data-callout="important"]')?.textContent).not.toContain("[!IMPORTANT]");
       // Plain link
       expect(container.querySelector('a[href="https://example.com"]')).not.toBeNull();
     }

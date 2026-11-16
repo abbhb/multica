@@ -19,6 +19,8 @@ COPY packages/ui/package.json packages/ui/
 COPY packages/views/package.json packages/views/
 COPY packages/tsconfig/package.json packages/tsconfig/
 COPY packages/eslint-config/package.json packages/eslint-config/
+COPY packages/plugin-sdk/package.json packages/plugin-sdk/
+COPY packages/vitest-setup/package.json packages/vitest-setup/
 
 RUN corepack enable && \
     PNPM_VERSION="$(node -p 'require("./package.json").packageManager')" && \
@@ -77,6 +79,12 @@ COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
 # Copy public assets
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web/public ./apps/web/public
+# Fork releases stage their matching installers before building this image.
+COPY --chown=nextjs:nodejs desktop-downloads/ ./apps/web/public/desktop/
+ARG BUNDLE_DESKTOP_DOWNLOADS=false
+RUN if [ "$BUNDLE_DESKTOP_DOWNLOADS" = "true" ]; then test -s ./apps/web/public/desktop/release.json; fi
+ENV MULTICA_DESKTOP_DOWNLOAD_DIR=/app/apps/web/public/desktop
+ENV MULTICA_DESKTOP_BUNDLE=$BUNDLE_DESKTOP_DOWNLOADS
 # Ship the license and attribution notices with the image (LICENSE condition 1b)
 COPY --chown=nextjs:nodejs LICENSE NOTICE ./
 

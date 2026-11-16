@@ -339,7 +339,7 @@ func (h *Handler) ownedStorageKey(rawURL string) string {
 // already loadable by an unauthenticated browser fetch, in which case
 // rewriting it would only add a pointless hop through the API.
 func (h *Handler) avatarObjectLoadsUnauthenticated(rawURL string) bool {
-	// Local storage raw URLs require authorization.
+	// Direct local-file serving is disabled, even when a base URL is configured.
 	if _, ok := h.Storage.(*storage.LocalStorage); ok {
 		return false
 	}
