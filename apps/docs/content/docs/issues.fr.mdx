@@ -153,6 +153,8 @@ Une tâche appartient à un [projet](/projects) au plus ; le projet fournit des 
 
 Un travail plus important peut être découpé en sous-tâches : la tâche parente conserve l'objectif global tandis que les sous-tâches avancent indépendamment. Les statuts de la tâche parente et des sous-tâches ne s'influencent pas.
 
+La barre latérale droite de la tâche parente liste ses **Sous-tâches** directes, avec leur statut, leur identifiant et leur titre. Cliquez sur une ligne pour l'ouvrir. Cette liste se replie indépendamment de celle sous la description ; les réglages de la barre latérale permettent aussi de la masquer ou de la déplacer.
+
 Les sous-tâches peuvent recevoir une **Étape** pour avancer par lots — 1, 2, 3. Lorsque toutes les sous-tâches de la première étape non terminée atteignent `done` ou `cancelled`, la tâche parente reçoit une notification « sous-tâches terminées » ; si l'assigné de la tâche parente est un agent, celui-ci se réveille et décide s'il lance l'étape suivante. Les sous-tâches sans étape forment un seul lot et ne déclenchent qu'une notification, lorsqu'elles sont toutes terminées. Ce réveil est déclenché par le système ; ses règles et les autres types de réveil sont décrits dans [Réveils de tâches](/issue-wakeups).
 
 ## Vues et affichage [#changer-de-vue]
