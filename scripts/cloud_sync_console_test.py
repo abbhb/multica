@@ -63,6 +63,7 @@ class ConsoleTests(unittest.TestCase):
             "slug": "demo",
             "origin": "https://target.example",
         }
+        self.cfg = cfg
         self.web = self.serve(
             partial(
                 Handler,
@@ -116,6 +117,7 @@ class ConsoleTests(unittest.TestCase):
             self.assertEqual(self.request("GET", self.path, user)[0], 200)
 
     def test_submit_validates_origin_and_session_bound_csrf_and_deduplicates(self):
+        self.cfg["allow_sync"] = True
         _, _, html = self.request("GET", self.path, "owner")
         token = re.search(r'name="csrf" value="([^"]+)"', html).group(1)
         data = {"mode": "sync", "csrf": token}
@@ -150,6 +152,40 @@ class ConsoleTests(unittest.TestCase):
         self.assertEqual(a[1]["Location"], b[1]["Location"])
         self.assertEqual(self.jobs.claim()["mode"], "sync")
         self.assertIsNone(self.jobs.claim())
+
+    def test_default_read_only_console_blocks_import_but_allows_compare(self):
+        _, _, html = self.request("GET", self.path, "owner")
+        sync = re.search(r'<button[^>]*value="sync"[^>]*>', html).group(0)
+        self.assertIn("disabled", sync)
+        token = re.search(r'name="csrf" value="([^"]+)"', html).group(1)
+        status, _, body = self.request("POST", self.path + "/runs", "owner",
+                                       {"mode": "sync", "csrf": token}, Origin=self.cfg["origin"])
+        self.assertEqual(status, 409)
+        self.assertIn("不会从官方导入", body)
+        self.assertEqual(self.jobs.history(), [])
+        self.assertEqual(self.request("POST", self.path + "/runs", "owner",
+                                      {"mode": "compare", "csrf": token}, Origin=self.cfg["origin"])[0], 303)
+        self.assertEqual(self.jobs.claim()["mode"], "compare")
+
+    def test_historical_schema_failure_has_no_fabricated_comparison_and_explains_no_write(self):
+        run = self.jobs.enqueue("compare", "owner")
+        self.jobs.finish(run, "failed", error="目标数据库结构发生变化，需重新核验迁移基线")
+        _, _, html = self.request("GET", self.path + "?run=" + run, "owner")
+        self.assertIn("未读取官方快照", html)
+        self.assertIn("未写入业务数据", html)
+        self.assertIn("未生成记录对账结果", html)
+
+    def test_local_only_rows_are_retained_and_schema_coverage_is_visible(self):
+        run = self.jobs.enqueue("compare", "owner")
+        self.jobs.finish(run, "partial", {
+            "written": 0, "difference_count": 1,
+            "schema": {"matches": False, "projection_compatible": True, "added": ["issue.new_field"], "removed": [], "changed": []},
+            "tables": {"issue": {"expected": 1, "actual": 2, "missing": [], "extra": ['["local-only"]'], "changed": []}},
+        })
+        _, _, html = self.request("GET", self.path + "?run=" + run, "owner")
+        self.assertIn("本地独有（保留）", html)
+        self.assertIn("新增字段不在本次核对范围", html)
+        self.assertIn("issue.new_field", html)
 
     def test_concurrent_clicks_create_one_run_and_restart_marks_interruption(self):
         with ThreadPoolExecutor(max_workers=6) as pool:
