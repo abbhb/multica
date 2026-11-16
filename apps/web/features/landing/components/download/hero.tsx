@@ -19,10 +19,12 @@ export function DownloadHero({
   detected,
   release,
   onStart,
+  bundled = false,
 }: {
   detected: DetectResult;
   release: LatestRelease;
   onStart: (key: DownloadKey) => void;
+  bundled?: boolean;
 }) {
   const { t, locale } = useLocale();
   const d = t.download.hero;
@@ -86,7 +88,7 @@ export function DownloadHero({
           )}
         </p>
       </div>
-      <AllPlatforms assets={release.assets} current={primary?.key} onStart={onStart} />
+      <AllPlatforms assets={release.assets} current={primary?.key} onStart={onStart} bundled={bundled} />
     </Container>
   );
 }

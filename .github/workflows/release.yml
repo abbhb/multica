@@ -66,6 +66,9 @@ jobs:
       - name: Verify Go test wrapper
         run: bash scripts/test-go.test.sh
 
+      - name: Verify desktop bundle staging
+        run: node --test scripts/stage-desktop-downloads.test.mjs
+
       - name: Run tests
         run: bash scripts/test-go.sh --race
 
@@ -238,7 +241,8 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/multica-backend:${{ steps.meta.outputs.version }}
 
   docker-web-build:
-    needs: verify
+    needs: [verify, selfhost-desktop]
+    if: ${{ !cancelled() && needs.verify.result == 'success' && (github.repository != 'abbhb/multica' || needs.selfhost-desktop.result == 'success') }}
     strategy:
       fail-fast: false
       matrix:
@@ -266,6 +270,13 @@ jobs:
             org.opencontainers.image.title=Multica Web
             org.opencontainers.image.description=Multica self-hosted web frontend
 
+      - name: Download matching desktop installers
+        if: github.repository == 'abbhb/multica'
+        uses: actions/download-artifact@v4
+        with:
+          name: selfhost-desktop-downloads
+          path: desktop-downloads
+
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -290,6 +301,7 @@ jobs:
           build-args: |
             REMOTE_API_URL=http://backend:8080
             NEXT_PUBLIC_APP_VERSION=${{ needs.verify.outputs.tag_name }}
+            BUNDLE_DESKTOP_DOWNLOADS=${{ github.repository == 'abbhb/multica' }}
           outputs: type=image,name=ghcr.io/${{ github.repository_owner }}/multica-web,push-by-digest=true,name-canonical=true,push=true
 
       - name: Export digest
@@ -400,6 +412,54 @@ jobs:
   # Desktop continues to ship via the manual `release-desktop` skill so it
   # can be signed + notarized with Apple Developer credentials that are
   # not (yet) wired into CI.
+  selfhost-desktop:
+    needs: verify
+    if: github.repository == 'abbhb/multica'
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "~1.27.4"
+          cache-dependency-path: server/go.sum
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Package both Mac architectures
+        working-directory: apps/desktop
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: node scripts/package.mjs --mac --arm64 --x64 --publish never -c.mac.identity=-
+      - name: Stage versioned installers and checksums
+        env:
+          RELEASE_TAG: ${{ needs.verify.outputs.tag_name }}
+        run: node scripts/stage-desktop-downloads.mjs apps/desktop/dist "${RELEASE_TAG#v}"
+      - name: Publish fork release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.verify.outputs.tag_name }}
+        run: |
+          if ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --generate-notes
+          fi
+          gh release upload "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --clobber apps/desktop/dist/mac-*/*.dmg apps/desktop/dist/mac-*/*.zip apps/desktop/dist/mac-*/*.yml apps/desktop/dist/mac-*/*.blockmap desktop-downloads/SHA256SUMS
+      - name: Upload image download bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: selfhost-desktop-downloads
+          path: desktop-downloads
+          retention-days: 7
+
   desktop:
     needs: release
     strategy:

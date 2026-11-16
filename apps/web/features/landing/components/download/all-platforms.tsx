@@ -38,11 +38,13 @@ export function AllPlatforms({
   assets,
   current,
   onStart,
+  bundled = false,
 }: {
   assets: DownloadAssets;
   /** The installer offered as this visitor's main download. */
   current?: DownloadKey;
   onStart?: (key: DownloadKey) => void;
+  bundled?: boolean;
 }) {
   const { t } = useLocale();
   const d = t.download.allPlatforms;
@@ -58,12 +60,13 @@ export function AllPlatforms({
         <h2 id="all-platforms-title" className="text-site-small text-site-ink">
           {d.title}
         </h2>
-        <SiteTextLink href={ALL_RELEASES_URL} external className="text-site-small text-site-muted hover:text-site-ink">
+        <SiteTextLink href={bundled ? "https://github.com/abbhb/multica/releases" : ALL_RELEASES_URL} external className="text-site-small text-site-muted hover:text-site-ink">
           {d.allReleases}
         </SiteTextLink>
       </div>
       <ul>
         {ROWS.map(({ platform, formats }) => {
+          if (bundled && !formats.some(([key]) => assets[key])) return null;
           const [osName, arch] = t.download.platforms[platform].split(" · ");
           const isCurrent = platform === currentPlatform;
           return (

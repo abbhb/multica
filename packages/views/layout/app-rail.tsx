@@ -53,6 +53,7 @@ import { AccountMenu } from "./account-menu";
 import { useAppShell } from "./app-shell-context";
 import { NewIssueButton, SearchButton } from "./global-actions";
 import { HelpLauncher } from "./help-launcher";
+import { DesktopDownload } from "./desktop-download";
 import { isPathWithin } from "./panel-nav";
 import { useTeamAgentStatus } from "./panels/team-status";
 import { RAIL_ICON_BUTTON_CLASS } from "./rail-styles";
@@ -430,6 +431,7 @@ export function AppRail({
         </SortableContext>
       </DndContext>
       <div className="mt-auto flex flex-col items-center gap-1 pt-2">
+        <DesktopDownload />
         <HelpLauncher />
         <TooltipHint label={t(($) => $.nav.settings)} side="right">
           <AppLink

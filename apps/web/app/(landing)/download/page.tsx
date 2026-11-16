@@ -4,6 +4,7 @@ import { fetchLatestRelease } from "@/features/landing/utils/github-release";
 import { getRequestPlatform } from "@/features/landing/utils/request-platform";
 import { isDownloadKey } from "@/features/landing/utils/download-target";
 import { DownloadClient } from "./download-client";
+import { loadBundledDesktopRelease } from "@/features/landing/utils/bundled-desktop-release";
 
 export function generateMetadata(): Promise<Metadata> {
   return pageMetadata("download", "/download");
@@ -17,7 +18,8 @@ export default async function DownloadPage({
 }: {
   searchParams: Promise<{ started?: string | string[] }>;
 }) {
-  const [release, platform, params] = await Promise.all([fetchLatestRelease(), getRequestPlatform(), searchParams]);
+  const bundled = loadBundledDesktopRelease();
+  const [release, platform, params] = await Promise.all([bundled ?? fetchLatestRelease(), getRequestPlatform(), searchParams]);
   const started = isDownloadKey(params.started) ? params.started : null;
-  return <DownloadClient release={release} platform={platform} started={started} />;
+  return <DownloadClient release={release} platform={platform} started={started} bundled={bundled !== null} />;
 }

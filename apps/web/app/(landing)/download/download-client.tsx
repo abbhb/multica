@@ -18,11 +18,13 @@ export function DownloadClient({
   release,
   platform,
   started: startedFromUrl,
+  bundled = false,
 }: {
   release: LatestRelease;
   platform: DetectResult;
   /** Set when a homepage download button sent the visitor here. */
   started: DownloadKey | null;
+  bundled?: boolean;
 }) {
   const router = useRouter();
   const { locale } = useLocale();
@@ -51,8 +53,12 @@ export function DownloadClient({
         />
       ) : (
         <>
-          <DownloadHero detected={detected} release={release} onStart={setStarted} />
-          <CliSection />
+          <DownloadHero detected={detected} release={release} onStart={setStarted} bundled={bundled} />
+          {bundled ? (
+            <p className="mx-auto max-w-5xl px-6 pb-12 text-center text-site-small">
+              <a href="/desktop/SHA256SUMS" download className="underline underline-offset-4">SHA-256</a>
+            </p>
+          ) : <CliSection />}
         </>
       )}
     </SitePage>

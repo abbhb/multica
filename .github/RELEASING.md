@@ -24,6 +24,29 @@ When raising the security floor, update all Go workflows and the pinned
 Go builder image in `Dockerfile` together so shipped binaries also receive
 the fixes.
 
+## Self-hosted fork releases
+
+For `abbhb/multica`, the same tag workflow builds both macOS architectures,
+publishes their DMG, ZIP, update metadata and SHA-256 checksums to the fork,
+then copies the exact installers into both Web image architectures. Web image
+publication waits for the desktop bundle; a missing architecture blocks it.
+The rail's desktop icon and Help download link open this server's `/download`
+page. The installers and `/desktop/SHA256SUMS` are served from the image,
+without a GitHub redirect. Desktop updates use the fork's release feed.
+
+The fork's macOS builds use ad-hoc signatures and are not Apple-notarized.
+Keep that limitation in the release notes. To build the same download bundle
+locally, package from the reviewed release tag and run:
+
+```sh
+node scripts/stage-desktop-downloads.mjs apps/desktop/dist X.Y.Z
+docker build -f Dockerfile.web --build-arg BUNDLE_DESKTOP_DOWNLOADS=true .
+```
+
+Never commit the files in `desktop-downloads/`. Before deployment, back up the
+database, uploads and migration-console state together, and retain the previous
+image digests. A schema rollback requires restoring that same backup set.
+
 ## Emergency vulnerability-scan bypass
 
 Use the bypass only when `govulncheck` itself or its live vulnerability database

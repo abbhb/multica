@@ -83,3 +83,6 @@ __pycache__/
 perf-report/
 # The production example is a tracked template; `.env*` above would hide it.
 !apps/mobile/.env.production.example
+# Release artifacts are copied into the Web image, never committed.
+/desktop-downloads/*
+!/desktop-downloads/.gitkeep
