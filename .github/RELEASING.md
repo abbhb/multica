@@ -47,6 +47,17 @@ Never commit the files in `desktop-downloads/`. Before deployment, back up the
 database, uploads and migration-console state together, and retain the previous
 image digests. A schema rollback requires restoring that same backup set.
 
+If GitHub Actions is unavailable, the fork can publish the same release locally
+from its reviewed, tagged `main` commit. Run the normal frontend checks, guarded
+Go tests with the race detector, and `go tool govulncheck ./...` first. Package
+both Mac architectures with `CSC_IDENTITY_AUTO_DISCOVERY=false` and
+`-c.mac.identity=-`, stage the downloads, then build the backend and Web images
+with the same version and commit labels. Upload the installers, updater metadata
+and checksums to that tag's GitHub Release. Transfer the built images to the
+self-hosted server and pin their image IDs in its Compose configuration. Record
+that CI was unavailable and retain the local check logs; local checks must not
+be described as a successful GitHub Actions run.
+
 ## Emergency vulnerability-scan bypass
 
 Use the bypass only when `govulncheck` itself or its live vulnerability database
