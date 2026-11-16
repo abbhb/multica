@@ -600,7 +600,8 @@
       "channels": "Mensajería",
       "code": "Código",
       "workflows": "Flujos de trabajo",
-      "voice_input": "Entrada de voz"
+      "voice_input": "Entrada de voz",
+      "reconciliation": "Conciliación de datos"
     },
     "groups": {
       "personal": "Personal",
@@ -615,7 +616,8 @@
     "search_clear": "Borrar búsqueda",
     "search_empty": "Ningún ajuste coincide",
     "search_results_one": "{{count}} resultado",
-    "search_results_other": "{{count}} resultados"
+    "search_results_other": "{{count}} resultados",
+    "open_reconciliation": "Abrir consola de conciliación"
   },
   "plugins": {
     "title": "Plugins",

@@ -611,7 +611,8 @@
       "channels": "Мессенджеры",
       "apps": "Подключённые приложения",
       "workflows": "Рабочие процессы",
-      "voice_input": "Голосовой ввод"
+      "voice_input": "Голосовой ввод",
+      "reconciliation": "Сверка данных"
     },
     "groups": {
       "personal": "Личное",
@@ -628,7 +629,8 @@
     "search_results_other": "{{count}} результата",
     "admin_only": "Изменить это могут только владельцы и администраторы",
     "search_results_few": "{{count}} результата",
-    "search_results_many": "{{count}} результатов"
+    "search_results_many": "{{count}} результатов",
+    "open_reconciliation": "Открыть консоль сверки"
   },
   "plugins": {
     "title": "Плагины",
