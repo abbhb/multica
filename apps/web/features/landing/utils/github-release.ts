@@ -6,6 +6,7 @@ import {
   type DownloadSizes,
   type GitHubAsset,
 } from "./parse-release-assets";
+import { loadBundledDesktopRelease } from "./bundled-desktop-release";
 
 /**
  * Server-side fetcher for the latest downloadable Multica release,
@@ -60,6 +61,8 @@ interface GitHubReleasePayload {
 }
 
 export async function fetchLatestRelease(): Promise<LatestRelease> {
+  const bundled = loadBundledDesktopRelease();
+  if (bundled !== null) return bundled;
   const headers: Record<string, string> = {
     Accept: "application/vnd.github+json",
     "X-GitHub-Api-Version": "2022-11-28",
