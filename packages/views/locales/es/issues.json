@@ -966,6 +966,8 @@
     }
   },
   "card": {
+    "sub_issue": "Subtarea",
+    "parent_unavailable": "Tarea principal no disponible",
     "update_failed": "No se ha podido actualizar la tarea",
     "updated_ago": "Actualizada {{time}}"
   },

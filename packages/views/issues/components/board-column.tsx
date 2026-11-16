@@ -190,6 +190,7 @@ export const BoardColumn = memo(function BoardColumn({
     <div className={index === 0 ? undefined : "pt-[var(--board-card-gap,var(--space-xs,0.5rem))]"}>
       <DraggableBoardCard
         issue={issue}
+        parentIssue={issue.parent_issue_id ? issueMap.get(issue.parent_issue_id) : undefined}
         childProgress={childProgressMap?.get(issue.id)}
         project={
           issue.project_id && issue.project_id !== projectId

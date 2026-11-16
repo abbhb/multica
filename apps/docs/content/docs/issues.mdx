@@ -155,6 +155,8 @@ Larger work can be split into sub-issues: the parent issue keeps the overall goa
 
 The parent's right sidebar lists its direct **Sub-issues**, with each issue's status, key, and title. Click a row to open it. Collapse this list independently of the sub-issue list below the description, or hide and reorder it in **Customize sidebar**.
 
+With **Show sub-issues** enabled on a board, child cards show a **Sub-issue** badge and their parent's key and title. Click the parent reference to open it, even when the parent is filtered out of the board.
+
 Creating a sub-issue from a parent prefills its project and, when set, its assignee. In manual create, **Copy parent fields** lets you choose priority, labels, dates, or individual custom properties to copy. Only the selected values replace your form values, once; later parent changes do not sync. The child keeps its own description and status. Labels, start date, and custom properties stay in the manual draft when switching to Create with agent.
 
 Sub-issues can be given a **stage** to advance in batches — 1, 2, 3. When every sub-issue in the earliest unfinished stage reaches `done` or `cancelled`, the parent issue receives a "sub-issues completed" notification; when the parent's assignee is an agent, it wakes up and decides whether to start the next stage. Sub-issues without a stage count as one batch and notify once when they all finish. The system triggers this wakeup; see [Issue wakeups](/issue-wakeups) for its rules and the other kinds of wakeup.

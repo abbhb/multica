@@ -998,6 +998,8 @@
     }
   },
   "card": {
+    "sub_issue": "サブタスク",
+    "parent_unavailable": "親タスクを表示できません",
     "update_failed": "タスクを更新できませんでした",
     "updated_ago": "{{time}} に更新"
   },

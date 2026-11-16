@@ -1052,6 +1052,8 @@
     }
   },
   "card": {
+    "sub_issue": "Sub-issue",
+    "parent_unavailable": "Parent issue unavailable",
     "update_failed": "Failed to update issue",
     "updated_ago": "Updated {{time}}"
   },
