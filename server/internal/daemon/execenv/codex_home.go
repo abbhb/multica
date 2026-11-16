@@ -314,6 +314,9 @@ func prepareCodexHomeWithOpts(codexHome string, opts CodexHomeOptions, logger *s
 	if err := ensureCodexMemoryConfig(filepath.Join(codexHome, "config.toml"), logger); err != nil {
 		logger.Warn("execenv: codex-home ensure memory config failed", "error", err)
 	}
+	if err := ensureCodexProjectDocBudget(configFile); err != nil {
+		return fmt.Errorf("ensure Codex project document budget: %w", err)
+	}
 
 	return nil
 }
